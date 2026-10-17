@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Catalog Sport</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Catalog Sport">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<header class="top"><h1 id="ttl">Prezență</h1><span id="sub"></span><span id="sync"></span></header>
+<main id="view"></main>
+<nav class="tabs" id="tabs"></nav>
+<div id="modal" class="modal hidden"><div class="sheet" id="sheet"></div></div>
+<input type="file" id="fileImp" accept=".xlsx,.xls,.csv,.ods,.txt" hidden multiple>
+<input type="file" id="fileBak" accept=".json" hidden>
+<div id="toast"></div>
+</body>
+</html>

@@ -1,0 +1,139 @@
+/* Catalog Sport – stiluri.
+   Layout: listă de apel cu bifă la stânga, bară de taburi jos, gândit pentru telefon în sala de sport.
+   Culorile sunt doar tokenuri (:root); tema întunecată le redefinește. Fișa elevului (.rep) are culorile ei, de hârtie. */
+:root{
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --bg:#f4f6f5; --card:#ffffff; --ink:#17201d; --muted:#5f6b67; --line:#dfe5e2;
+  --accent:#0f766e; --accent-ink:#ffffff; --accent-soft:#d9f0ec;
+  --bad:#b42318; --bad-soft:#fde8e6; --warn:#a15c07; --warn-soft:#fdf1dc; --good:#157f3d; --good-soft:#dcf3e3;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1412; --card:#18201d; --ink:#e7eeeb; --muted:#9aa8a3; --line:#2a3531;
+  --accent:#2dd4bf; --accent-ink:#06201c; --accent-soft:#123a35;
+  --bad:#f97066; --bad-soft:#3a1714; --warn:#fbbf24; --warn-soft:#3a2a0b; --good:#4ade80; --good-soft:#123321;
+  --shadow:none; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1412; --card:#18201d; --ink:#e7eeeb; --muted:#9aa8a3; --line:#2a3531;
+  --accent:#2dd4bf; --accent-ink:#06201c; --accent-soft:#123a35;
+  --bad:#f97066; --bad-soft:#3a1714; --warn:#fbbf24; --warn-soft:#3a2a0b; --good:#4ade80; --good-soft:#123321;
+  --shadow:none; color-scheme:dark;
+}
+
+/* ---- bază ---- */
+*{box-sizing:border-box}
+html{background:var(--accent)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 var(--f-body);padding-bottom:calc(72px + env(safe-area-inset-bottom, 0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header.top{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);padding-top:calc(10px + env(safe-area-inset-top, 0px));padding-bottom:10px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;align-items:baseline;gap:10px}
+header.top h1{font:700 22px/1.1 var(--f-display);margin:0;letter-spacing:.01em}
+header.top span{opacity:.85;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+header.top #sync{margin-left:auto;font-size:12px;flex:none;opacity:.9}
+main{max-width:860px;margin:0 auto;padding-block:12px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom, 0px);padding-left:env(safe-area-inset-left, 0px);padding-right:env(safe-area-inset-right, 0px)}
+nav.tabs button{flex:1;min-width:0;border:0;background:none;padding:8px 1px 10px;font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
+nav.tabs button svg{width:24px;height:24px}
+nav.tabs button.on{color:var(--accent);font-weight:600}
+
+/* ---- componente ---- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card h2,.sheet h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-wrap:balance}
+.card h2{font-size:19px;margin:0 0 10px}
+.row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1;min-width:0}
+.right{margin-left:auto}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1;min-width:120px}
+input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-height:42px;width:100%}
+textarea{min-height:120px;resize:vertical}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 14px;min-height:42px;cursor:pointer;font-weight:550;white-space:nowrap}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.bad{color:var(--bad)}
+.btn.sm{min-height:34px;padding:5px 10px;font-size:14px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.banner{background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+.banner b{font-weight:650}
+.stats{display:flex;gap:8px;margin:4px 0 10px;flex-wrap:wrap}
+.pill{border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600;background:var(--bg);border:1px solid var(--line)}
+.pill.g{background:var(--good-soft);color:var(--good);border-color:transparent}
+.pill.b{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--card);padding:8px 16px;min-height:40px;cursor:pointer;font-weight:600}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.empty{text-align:center;padding:30px 16px;color:var(--muted)}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+
+/* ---- listă elevi ---- */
+.list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.st{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;min-height:56px}
+.st:last-child{border-bottom:0}
+.st.abs{background:var(--bad-soft)}
+.st.static{cursor:default}
+.chk{flex:none;width:30px;height:30px;border-radius:8px;border:2px solid var(--muted);display:grid;place-items:center;background:var(--card)}
+.chk svg{width:20px;height:20px;opacity:0}
+.st.on .chk{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.st.on .chk svg{opacity:1}
+.nr{width:22px;text-align:right;color:var(--muted);font-size:13px;flex:none}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pct{font-size:12px;color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
+.why{flex:none;border:1px dashed var(--bad);color:var(--bad);background:transparent;border-radius:8px;padding:4px 8px;font-size:13px;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.why.set{border-style:solid;background:var(--card)}
+.st input.val{width:84px;flex:none}
+.delta{width:48px;flex:none;text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+
+/* ---- tabele & note ---- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--bg);position:sticky;top:0}
+td.l,th.l{text-align:left}
+td.nmc{max-width:170px;overflow:hidden;text-overflow:ellipsis}
+td select{min-height:32px;padding:3px 6px;width:auto;font-size:13px}
+td input{min-height:36px;padding:5px 8px;width:90px}
+.g{display:inline-block;min-width:28px;padding:2px 6px;border-radius:7px;font-weight:700;font-variant-numeric:tabular-nums}
+.g10,.g9{background:var(--good-soft);color:var(--good)}
+.g5,.g6{background:var(--warn-soft);color:var(--warn)}
+.g1,.g2,.g3,.g4{background:var(--bad-soft);color:var(--bad)}
+.fin{font-size:16px}
+.up{color:var(--good)} .down{color:var(--bad)}
+
+/* ---- ferestre, toast ---- */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.modal.hidden{display:none}
+.sheet{background:var(--card);width:100%;max-width:640px;max-height:90vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom, 0px))}
+.sheet.wide{max-width:860px}
+@media (min-width:700px){.modal{align-items:center}.sheet{border-radius:18px}}
+.sheet h3{margin:0 0 12px;font-size:22px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;cursor:pointer}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.grid-t{display:grid;grid-template-columns:60px 1fr 1fr;gap:6px;align-items:center}
+.grid-t div{font-size:13px;color:var(--muted)}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;max-width:90vw}
+#toast.show{opacity:1}
+
+/* ---- fișa elevului: hârtie albă și în tema întunecată, pregătită pentru A4 ---- */
+.rep{--p-ink:#1b2420; --p-muted:#5a6661; --p-line:#cfd8d4; --p-accent:#0f766e; --p-soft:#e6f3f0; --p-good:#157f3d; --p-bad:#b42318;
+  background:#fff;color:var(--p-ink);font:13px/1.4 var(--f-body);padding:18px;border-radius:6px;max-width:794px;margin:0 auto}
+.rep .r-head{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid var(--p-accent);padding-bottom:8px;font-size:12px;color:var(--p-muted)}
+.rep h1{font:700 22px/1.15 var(--f-display);margin:12px 0 2px;color:var(--p-ink)}
+.rep .r-sub{color:var(--p-muted);margin-bottom:12px}
+.rep .r-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 16px;margin-bottom:14px}
+.rep .r-meta b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--p-muted);font-weight:600}
+.rep h2{font:700 15px/1.2 var(--f-display);letter-spacing:.04em;text-transform:uppercase;color:var(--p-accent);margin:16px 0 6px}
+.rep table{font-size:12.5px}
+.rep th{background:var(--p-soft);color:var(--p-ink);position:static}
+.rep th,.rep td{border-bottom:1px solid var(--p-line);padding:5px 6px}
+.rep td.num{font-variant-numeric:tabular-nums}
+.rep .up{color:var(--p-good);font-weight:600}.rep .down{color:var(--p-bad);font-weight:600}.rep .neu{color:var(--p-muted)}
+.rep .charts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.rep .chart{border:1px solid var(--p-line);border-radius:6px;padding:6px 8px}
+.rep .chart .t{font-weight:600;font-size:12px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rep .chart svg{display:block;width:100%;height:auto}
+.rep .obs{min-height:70px;border:1px solid var(--p-line);border-radius:6px;padding:8px;white-space:pre-wrap}
+.rep .sign{display:flex;justify-content:space-between;margin-top:22px;color:var(--p-muted)}
+.rep .chart,.rep table tr{break-inside:avoid}
