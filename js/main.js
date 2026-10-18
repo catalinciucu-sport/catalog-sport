@@ -4,7 +4,7 @@
 import {S, onSave, persistLocal} from './store.js';
 import {ICON, $, closeModal} from './util.js';
 import {setRenderer} from './ui.js';
-import {queueSync, connect, onRemoteData} from './sync.js';
+import {queueSync, connect, onRemoteData, syncNowBtn} from './sync.js';
 import attendance, {A, initAtt} from './views/attendance.js';
 import grades from './views/grades.js';
 import norms from './views/norms.js';
@@ -20,6 +20,7 @@ const ACTIONS = {
   // tabul ales e doar o preferință a acestui dispozitiv: se salvează local, nu se sincronizează
   tab(el) { S.ui.tab = el.dataset.k; persistLocal(); closeModal(); render(); window.scrollTo(0, 0); },
   close: closeModal,
+  syncNow: syncNowBtn,
 };
 const CHANGES = {}, INPUTS = {};
 VIEWS.forEach(v => { Object.assign(ACTIONS, v.actions); Object.assign(CHANGES, v.changes); Object.assign(INPUTS, v.inputs); });

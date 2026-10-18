@@ -121,19 +121,23 @@ async function syncNow() {
   writeLS(BASE_KEY, BASE);
 }
 
+const btn = () => document.getElementById('syncBtn');
 async function run() {
+  if (btn()) btn().hidden = !linked();
   if (!linked()) return;
   if (syncing) { again = true; return; }
-  syncing = true;
+  syncing = true; btn()?.classList.add('spin');
   try { await syncNow(); online = true; setSync('✓ salvat în Google'); }
   catch (e) {
     online = false;
     setSync(e.code === 'cod_gresit' ? 'cod secret greșit' : 'offline – salvat local');
     if (e.code !== 'cod_gresit') { clearTimeout(syncT); syncT = setTimeout(run, 20000); }
   }
-  syncing = false;
+  syncing = false; btn()?.classList.remove('spin');
   if (again) { again = false; run(); }
 }
+// butonul de reîmprospătare din bara de sus
+export function syncNowBtn() { setSync('se sincronizează…'); clearTimeout(syncT); run(); }
 
 export function queueSync() { if (!linked()) return; setSync('se salvează…'); clearTimeout(syncT); syncT = setTimeout(run, 1500); }
 export async function connect() {
@@ -151,6 +155,7 @@ export async function link(url, token) {
 }
 export function unlink() {
   CFG = {}; BASE = {}; online = false;
+  if (btn()) btn().hidden = true;
   try { localStorage.removeItem(CFG_KEY); localStorage.removeItem(BASE_KEY); } catch (e) {}
   setSync('doar pe acest dispozitiv');
 }
@@ -158,3 +163,5 @@ export function unlink() {
 // când revii în aplicație sau revine internetul: verifică dacă ai lucrat între timp pe alt dispozitiv
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run(); });
 window.addEventListener('online', run);
+// și singur, la 2 minute, cât timp aplicația e pe ecran
+setInterval(() => { if (document.visibilityState === 'visible' && !syncing) run(); }, 120000);
