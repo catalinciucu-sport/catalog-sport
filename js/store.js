@@ -19,18 +19,19 @@ export function defaults() {
     schedule: [],    // [{id, day: 1-6, start: 'HH:MM', end: 'HH:MM', classId}]
     // Date orientative pentru anul școlar 2026–2027 — se verifică în Setări.
     modules: [
-      {id: uid(), name: 'Modulul 1', start: '2026-09-07', end: '2026-10-23'},
-      {id: uid(), name: 'Modulul 2', start: '2026-11-02', end: '2026-12-19'},
-      {id: uid(), name: 'Modulul 3', start: '2027-01-08', end: '2027-02-12'},
-      {id: uid(), name: 'Modulul 4', start: '2027-02-22', end: '2027-04-02'},
-      {id: uid(), name: 'Modulul 5', start: '2027-04-12', end: '2027-06-18'},
+      // id-uri fixe: aceleași pe orice dispozitiv, ca să nu apară dublate la conectare
+      {id: 'mod1', name: 'Modulul 1', start: '2026-09-07', end: '2026-10-23'},
+      {id: 'mod2', name: 'Modulul 2', start: '2026-11-02', end: '2026-12-19'},
+      {id: 'mod3', name: 'Modulul 3', start: '2027-01-08', end: '2027-02-12'},
+      {id: 'mod4', name: 'Modulul 4', start: '2027-02-22', end: '2027-04-02'},
+      {id: 'mod5', name: 'Modulul 5', start: '2027-04-12', end: '2027-06-18'},
     ],
     // type: 'high' (mai mare = mai bine) | 'low' (mai mic = mai bine) | 'direct' (notă directă)
     // t = baremul general (praguri pentru notele 10..5, B/F); lv = bareme pe niveluri {'9': {B: [...], F: [...]}}
     norms: [
-      {id: uid(), name: 'Alergare viteză 50 m (exemplu)', unit: 's', type: 'low',
+      {id: 'ex50', name: 'Alergare viteză 50 m (exemplu)', unit: 's', type: 'low',
         t: {B: [7.0, 7.3, 7.6, 7.9, 8.2, 8.5], F: [7.8, 8.1, 8.4, 8.7, 9.0, 9.4]}},
-      {id: uid(), name: 'Săritura în lungime de pe loc (exemplu)', unit: 'cm', type: 'high',
+      {id: 'exlung', name: 'Săritura în lungime de pe loc (exemplu)', unit: 'cm', type: 'high',
         t: {B: [230, 220, 210, 200, 190, 180], F: [200, 190, 180, 170, 160, 150]}},
     ],
     // măsurători antropometrice; 'h' și 'w' au id-uri fixe (IMC se calculează din ele)

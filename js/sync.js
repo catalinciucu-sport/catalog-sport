@@ -105,6 +105,15 @@ async function syncNow() {
       if (r === undefined) delete BASE[k]; else BASE[k] = r;
     } else if (localChanged && !remoteChanged) {   // doar aici
       send[k] = l === undefined ? null : JSON.parse(l); sentStr[k] = l;
+    } else if (k === 'core' && b === undefined && l !== undefined && r !== undefined) {
+      // prima conectare a unui dispozitiv la un tabel care are deja date: se preia tabelul așa cum e
+      // (normele și modulele implicite ale dispozitivului nu se adaugă); se păstrează doar clasele făcute aici
+      const m = JSON.parse(r), mine = JSON.parse(l), have = new Set((m.classes || []).map(c => c.id));
+      const extra = (mine.classes || []).filter(c => !have.has(c.id) && c.students.length);
+      m.classes = [...(m.classes || []), ...extra];
+      m.schedule = [...(m.schedule || []), ...(mine.schedule || []).filter(e => extra.some(c => c.id === e.classId))];
+      applyDoc(k, m); took = true;
+      if (extra.length) { send[k] = m; sentStr[k] = J(m); } else BASE[k] = r;
     } else {                                       // în ambele: se combină
       const m = merge3(b === undefined ? undefined : JSON.parse(b), l === undefined ? undefined : JSON.parse(l), r === undefined ? undefined : JSON.parse(r));
       applyDoc(k, m === undefined ? null : m); took = true;
