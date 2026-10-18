@@ -11,7 +11,12 @@ export const view = () => $('#view');
 export function setHead(t, sub) { $('#ttl').textContent = t; $('#sub').textContent = sub || ''; }
 export function setSync(t) { const el = $('#sync'); if (el) el.textContent = t; }
 
-export const classOpts = sel => S.classes.map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+// lista claselor pentru selecții; cu mai multe școli, grupate pe școli
+export function classOpts(sel) {
+  const opt = c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`;
+  if (S.schools.length < 2) return S.classes.map(opt).join('');
+  return S.schools.map(sc => { const cs = S.classes.filter(c => c.schoolId === sc.id); return cs.length ? `<optgroup label="${esc(sc.name || 'Școală fără nume')}">${cs.map(opt).join('')}</optgroup>` : ''; }).join('');
+}
 export const modOpts = sel => S.modules.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.name)} (${fmtD(m.start).slice(0, 5)}–${fmtD(m.end).slice(0, 5)})</option>`).join('');
 // clasa de proveniență, sub nume, pentru elevii din grupe (student.from, ex. „9COM”)
 export const fromTag = st => st.from ? `<small class="from">${esc(st.from)}</small>` : '';

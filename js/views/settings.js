@@ -30,9 +30,11 @@ function renderSet() {
       <label class="f">Linkul de conectare al colegului<input type="text" id="peerLink" autocomplete="off" placeholder="https://…#conectare=…"></label>
       <button class="btn" style="margin-top:10px" data-act="peerOn">Salvează</button>`}</div>` : ''}
 
-  <div class="card"><h2>Școala (apare pe fișele elevilor)</h2>
-    <div class="row2">
-      <label class="f" style="flex-basis:100%">Unitatea de învățământ<input type="text" value="${esc(S.school.name)}" data-ch="school" data-f="name" placeholder="ex: Liceul Teoretic „…”"></label>
+  <div class="card"><h2>Școlile mele</h2><div class="small muted" style="margin-bottom:6px">Apar pe fișele elevilor și pe foaia pentru catalog. Dacă predai la mai multe școli, fiecare clasă se atribuie unei școli (în Clase).</div>
+    ${S.schools.map(sc => row(`<input type="text" class="grow" style="min-width:180px" value="${esc(sc.name)}" placeholder="ex: Colegiul „…”" data-ch="schName" data-id="${sc.id}">
+      <span class="small muted">${S.classes.filter(c => c.schoolId === sc.id).length} clase</span>${S.schools.length > 1 ? del('schoolDel', `data-id="${sc.id}"`) : ''}`)).join('')}
+    <button class="btn sm" style="margin-top:8px" data-act="schoolAdd">+ Adaugă școală</button>
+    <div class="row2" style="margin-top:12px">
       <label class="f">Profesor<input type="text" value="${esc(S.school.teacher)}" data-ch="school" data-f="teacher"></label>
       <label class="f">An școlar<input type="text" value="${esc(S.school.year)}" data-ch="school" data-f="year"></label>
     </div></div>
@@ -74,6 +76,10 @@ function renderSet() {
     ${S.teams.map(t => `<div class="item"><div class="grow"><b>${esc(t.name)}</b><div class="small muted">${t.members.length} elevi · competiții în ${t.modules.map(id => S.modules.find(m => m.id === id)?.name).filter(Boolean).join(', ') || 'niciun modul'}</div></div>
       <button class="btn sm" data-act="teamEdit" data-id="${t.id}">Editează</button></div>`).join('') || '<div class="muted small">Nicio echipă.</div>'}
     <button class="btn sm" style="margin-top:8px" data-act="teamNew">+ Echipă nouă</button></div>
+
+  <div class="card"><h2>Barem generat din rezultate</h2><div class="small muted" style="margin-bottom:6px">Când generezi un barem din rezultatele elevilor (în fereastra unei norme), cei mai buni primesc nota 10 și așa mai departe, după procentele de aici. Totalul trebuie să fie 100%.</div>
+    <div class="row2">${S.settings.curve.map((x, i) => `<label class="f" style="min-width:90px;flex:0 1 100px">Nota ${x.g}<input type="number" min="0" max="100" value="${x.p}" data-ch="curve" data-i="${i}"></label>`).join('')}</div>
+    <div class="small" style="margin-top:6px" id="curveSum">Total: ${S.settings.curve.reduce((a, x) => a + +x.p, 0)}%</div></div>
 
   <div class="card"><h2>Motive de absență</h2><div class="small muted" style="margin-bottom:6px">Bifează „motivat” dacă ora nu trebuie să scadă procentul de prezență.</div>
     ${S.settings.reasons.map((r, i) => `<div class="item"><input type="text" class="grow" value="${esc(r.t)}" data-ch="rsn" data-i="${i}">
@@ -154,6 +160,15 @@ export default {
     modDel(el) { ask('Ștergi modulul? Prezențele rămân, dar notele la norme din acest modul nu mai apar.', () => { S.modules = S.modules.filter(m => m.id !== el.dataset.id); save(); render(true); }, 'Șterge modulul'); },
     msAdd() { S.measures.push({id: uid(), name: 'Măsurătoare nouă', unit: 'cm', better: 'none'}); save(); render(true); },
     msDel(el) { ask('Ștergi măsurătoarea? Valorile introduse la ea nu mai apar pe fișe.', () => { S.measures = S.measures.filter(m => m.id !== el.dataset.id); save(); render(true); }, 'Șterge'); },
+    schoolAdd() { S.schools.push({id: uid(), name: ''}); save(); render(true); },
+    schoolDel(el) {
+      const sc = S.schools.find(s => s.id === el.dataset.id), n = S.classes.filter(c => c.schoolId === sc.id).length;
+      ask(n ? `Ștergi școala? Cele ${n} clase ale ei trec la prima școală din listă.` : 'Ștergi școala din listă?', () => {
+        S.schools = S.schools.filter(s => s !== sc);
+        S.classes.forEach(c => { if (c.schoolId === sc.id) c.schoolId = S.schools[0].id; });
+        save(); render(true);
+      }, 'Șterge școala');
+    },
     teamNew() { const t = {id: uid(), name: 'Echipă nouă', members: [], modules: []}; S.teams.push(t); save(); render(true); teamModal(t.id); },
     teamEdit(el) { teamModal(el.dataset.id); },
     teamSave(el) { keepTeamName(S.teams.find(x => x.id === el.dataset.id)); save(); closeModal(); render(true); },
@@ -169,12 +184,19 @@ export default {
   },
   changes: {
     school(el) { S.school[el.dataset.f] = el.value; save(); },
+    schName(el) { S.schools.find(s => s.id === el.dataset.id).name = el.value.trim(); save(); },
     sch(el) { const x = S.schedule.find(s => s.id === el.dataset.id); x[el.dataset.f] = el.dataset.f === 'day' ? +el.value : el.value; save(); },
     mod(el) { S.modules.find(s => s.id === el.dataset.id)[el.dataset.f] = el.value; save(); },
     ms(el) { S.measures.find(s => s.id === el.dataset.id)[el.dataset.f] = el.value; save(); },
     scale(el) { S.settings.scale[+el.dataset.i].min = +el.value; save(); },
     minGrade(el) { S.settings.minGrade = Math.max(1, Math.min(10, +el.value || 4)); save(); },
     autoRule(el) { S.settings.autoRule = el.value; save(); },
+    curve(el) {
+      S.settings.curve[+el.dataset.i].p = Math.max(0, +el.value || 0); save();
+      const t = S.settings.curve.reduce((a, x) => a + +x.p, 0);
+      $('#curveSum').textContent = `Total: ${t}%` + (t === 100 ? '' : ' – trebuie să fie 100%');
+      $('#curveSum').style.color = t === 100 ? '' : 'var(--bad)';
+    },
     tmMod(el) {
       const t = S.teams.find(x => x.id === el.dataset.id); keepTeamName(t);
       t.modules = el.checked ? [...t.modules, el.dataset.m] : t.modules.filter(m => m !== el.dataset.m);

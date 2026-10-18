@@ -125,7 +125,7 @@ export default {
     attGo(el) { A.classId = el.dataset.id; S.ui.lastClass = el.dataset.id; persistLocal(); render(); window.scrollTo(0, 0); },
     openSess(el) { const [d, s] = el.dataset.k.split('|'); Object.assign(A, {date: d, slot: s, info: null}); closeModal(); render(); },
     demo() {
-      const c = {id: uid(), name: 'Clasa exemplu', students: ['Avram Ioana|F', 'Barbu Andrei|B', 'Constantin Maria|F', 'Dinu Alexandru|B', 'Enache Elena|F', 'Florea Mihai|B', 'Georgescu Ana|F', 'Ilie Radu|B']
+      const c = {id: uid(), name: 'Clasa exemplu', schoolId: S.schools[0].id, students: ['Avram Ioana|F', 'Barbu Andrei|B', 'Constantin Maria|F', 'Dinu Alexandru|B', 'Enache Elena|F', 'Florea Mihai|B', 'Georgescu Ana|F', 'Ilie Radu|B']
         .map(x => { const [name, gender] = x.split('|'); return {id: uid(), name, gender}; })};
       S.classes.push(c); Object.assign(A, {classId: c.id, slot: slotsFor(c.id, A.date)[0]});
       S.ui.tab = 'att'; save(); render(); toast('Am adăugat o clasă exemplu – o poți șterge din tabul Clase');

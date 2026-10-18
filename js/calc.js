@@ -33,13 +33,41 @@ export function gradeFromPct(pct) {
   return S.settings.minGrade;
 }
 
+/* ---- nivelul de studiu al clasei (0 = pregătitoare, 1–12) ---- */
+const ROMAN = {XII: 12, XI: 11, X: 10, IX: 9, VIII: 8, VII: 7, VI: 6, V: 5, IV: 4, III: 3, II: 2, I: 1};
+export function detectLevel(name) {
+  const s = nrm(name).toUpperCase();
+  if (/^(PREG|CP\b|0)/.test(s)) return 0;
+  const d = s.match(/^\s*(\d{1,2})/); if (d && +d[1] <= 12) return +d[1];
+  const r = s.match(/^\s*(XII|XI|IX|X|VIII|VII|VI|IV|V|III|II|I)\b/); if (r) return ROMAN[r[1]];
+  return null;
+}
+// nivelul ales în Clase, altfel din nume, altfel (la grupe) din clasa de proveniență a celor mai mulți elevi
+export function levelOf(c) {
+  if (!c) return null;
+  if (c.level != null && c.level !== '') return +c.level;
+  const n = detectLevel(c.name); if (n != null) return n;
+  const count = {};
+  c.students.forEach(s => { const l = s.from && detectLevel(s.from); if (l != null) count[l] = (count[l] || 0) + 1; });
+  const best = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  return best ? +best[0] : null;
+}
+const classOfStudent = sid => S.classes.find(c => c.students.some(s => s.id === sid));
+
 /* ---- norme de control ---- */
-export function normGrade(norm, gender, v) {
+const filled = a => a && a.some(x => x !== '' && x != null);
+// baremul folosit, în ordine: al nivelului pentru sexul elevului, cel general pentru sexul elevului,
+// apoi (la fete, dacă nu există barem de fete) al băieților: întâi al nivelului, apoi cel general
+export function baremFor(norm, gender, level) {
+  const lv = level != null && norm.lv && norm.lv[level];
+  if (gender === 'F') { if (lv && filled(lv.F)) return lv.F; if (filled(norm.t.F)) return norm.t.F; }
+  return lv && filled(lv.B) ? lv.B : norm.t.B;
+}
+export function normGrade(norm, gender, v, level) {
   if (v === '' || v == null || isNaN(v)) return null;
   v = +v;
   if (norm.type === 'direct') return Math.max(1, Math.min(10, Math.round(v)));
-  const hasF = norm.t.F && norm.t.F.some(x => x !== '' && x != null);
-  const t = gender === 'F' && hasF ? norm.t.F : norm.t.B;
+  const t = baremFor(norm, gender, level) || [];
   for (let i = 0; i < 6; i++) {
     const th = t[i];
     if (th === '' || th == null) continue;
@@ -58,10 +86,40 @@ export function recalcNorm(normId) {
     const c = S.classes.find(x => x.id === cId); if (!c) continue;
     for (const mId in S.results[cId]) {
       const r = S.results[cId][mId][normId]; if (!r) continue;
-      for (const sid in r) if (r[sid].v != null) r[sid].g = normGrade(n, c.students.find(s => s.id === sid)?.gender, r[sid].v);
+      for (const sid in r) if (r[sid].v != null) r[sid].g = normGrade(n, c.students.find(s => s.id === sid)?.gender, r[sid].v, levelOf(c));
     }
   }
 }
+
+/* ---- rezultatele tuturor elevilor la o normă (module + testări), cel mai bun rezultat al fiecăruia ---- */
+export function bestResults(norm, level, gender) {
+  const best = {}, better = (a, b) => norm.type === 'low' ? a < b : a > b;
+  const put = (sid, v) => { if (v == null || isNaN(v)) return; if (best[sid] == null || better(+v, best[sid])) best[sid] = +v; };
+  S.classes.forEach(c => {
+    if (level != null && levelOf(c) !== level) return;
+    const ok = sid => !gender || c.students.find(s => s.id === sid)?.gender === gender;
+    Object.values(S.results[c.id] || {}).forEach(m => Object.entries(m[norm.id] || {}).forEach(([sid, x]) => ok(sid) && put(sid, x.v)));
+    (S.tests[c.id]?.['n:' + norm.id] || []).forEach(t => Object.entries(t.v).forEach(([sid, v]) => ok(sid) && put(sid, v)));
+  });
+  return best;   // {studentId: valoare}
+}
+// barem propus din rezultate: primii p% → 10, următorii → 9 ... (S.settings.curve)
+export function curveBarem(norm, level, gender) {
+  const vals = Object.values(bestResults(norm, level, gender)).sort((a, b) => norm.type === 'low' ? a - b : b - a);
+  if (vals.length < 5) return {n: vals.length, t: null};
+  let cum = 0;
+  const t = S.settings.curve.map(x => { cum += +x.p; return vals[Math.min(vals.length - 1, Math.max(0, Math.ceil(vals.length * cum / 100) - 1))]; });
+  return {n: vals.length, t};
+}
+// poziția unui rezultat față de colegii de același nivel și sex: procentul celor depășiți
+export function standing(norm, level, gender, sid) {
+  const best = bestResults(norm, level, gender), mine = best[sid];
+  const others = Object.entries(best).filter(([id]) => id !== sid).map(([, v]) => v);
+  if (mine == null || others.length < 4) return null;
+  const beaten = others.filter(v => norm.type === 'low' ? mine < v : mine > v).length;
+  return {pct: Math.round(beaten / others.length * 100), n: others.length + 1};
+}
+export {classOfStudent};
 
 /* ---- nota finală pe modul ---- */
 const roundG = x => Math.floor(x + 0.5);
@@ -97,6 +155,25 @@ export function finalFor(c, st, mod) {
   else if (ch === 'max' || ch === 'avg') res = combine(ch, gp, gn);
   else res = team ? {g: 10, src: 'Echipa ' + team.name} : combine(S.settings.autoRule || 'max', gp, gn);
   return {a, gp, avgN, team, ch, ...res};
+}
+
+/* ---- notele pentru catalog: ce note se trec, pentru fiecare elev și modul ---- */
+const normName = n => n.name.replace(/\s*\(exemplu\)/, '');
+// toate notele care se pot alege: [{key, label, g}]
+export function catalogOptions(c, st, mod) {
+  const f = finalFor(c, st, mod), r = rres(c.id, mod.id);
+  const o = [{key: 'auto', label: 'Nota calculată (' + (f.src || '–') + ')', g: f.g}, {key: 'navg', label: 'Media normelor', g: f.avgN != null ? roundG(f.avgN) : null}];
+  S.norms.forEach(n => { const g = r[n.id]?.[st.id]?.g; if (g != null) o.push({key: 'norm:' + n.id, label: normName(n), g}); });
+  o.push({key: 'att', label: 'Prezență' + (f.a.pct != null ? ` (${f.a.pct}%)` : ''), g: f.gp});
+  o.push({key: 'team', label: f.team ? 'Echipa ' + f.team.name : 'Echipa școlii', g: 10});
+  return o;
+}
+export const catalogPicks = (cId, mId, sid) => S.catalog[cId]?.[mId]?.[sid] || ['auto'];
+// notele care intră în catalog, în ordinea aleasă: [{label, g}] (fără cele încă necalculate)
+export function catalogFor(c, st, mod) {
+  const opts = catalogOptions(c, st, mod);
+  return catalogPicks(c.id, mod.id, st.id).map(p => typeof p === 'object' ? {label: 'Notă', g: p.m} : opts.find(o => o.key === p))
+    .filter(x => x && x.g != null);
 }
 
 /* ---- testări (fiecare probă / măsurătoare cu data ei) ---- */

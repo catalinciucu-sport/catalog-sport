@@ -1,34 +1,55 @@
-// Fișa de evoluție a elevului: antet, tabel cu toate testările (cu dată), grafice, observații.
-// Se vede într-o fereastră din aplicație; PDF-ul se face cu html2pdf (încărcat doar când e nevoie)
-// și se trimite prin meniul de partajare al telefonului (WhatsApp, e-mail...) sau se descarcă.
-import {S, save, path} from './store.js';
-import {esc, fmtD, fmtN, openModal, toast, $} from './util.js';
-import {testItems, series, bmiSeries, progress} from './calc.js';
+// Documente de dat sau de printat, ca PDF (html2pdf, încărcat doar când e nevoie), trimise prin meniul
+// de partajare al telefonului (WhatsApp, e-mail...) sau descărcate:
+//  - fișa de evoluție a elevului: testări cu dată, recorduri personale, comparație cu colegii și cu baremul, grafice, observații;
+//  - foaia pentru catalog a unei clase: notele alese pentru catalog, pe fiecare modul.
+import {S, save, path, schoolOf, LEVELS} from './store.js';
+import {esc, fmtD, fmtN, iso, openModal, toast, $} from './util.js';
+import {testItems, series, bmiSeries, progress, levelOf, normGrade, standing, catalogFor} from './calc.js';
 import {saveBlob} from './files.js';
 
 const GENDER = {B: 'Băiat', F: 'Fată'};
 const COLORS = {first: '#b9c4c0', up: '#157f3d', down: '#b42318', neu: '#0f766e'};
 const HTML2PDF = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+const levelWords = l => l == null ? '' : l === 0 ? 'clasa pregătitoare' : `clasa a ${LEVELS[l]}-a`;
+const head = c => `<div class="r-head"><span>${esc(schoolOf(c).name || 'Unitatea de învățământ')}</span><span>An școlar ${esc(S.school.year)}</span></div>`;
 
+/* ---- fișa elevului ---- */
 // rândurile fișei: măsurători (+ IMC după greutate), apoi probe; doar cele cu valori
 function reportRows(c, st) {
-  const rows = [], add = (it, s) => { if (s.length) rows.push({...it, s, p: s.length > 1 ? progress(it.better, s[0].v, s[s.length - 1].v) : null}); };
+  const rows = [], lvl = levelOf(c);
+  const add = (it, s) => {
+    if (!s.length) return;
+    const row = {...it, s, p: s.length > 1 ? progress(it.better, s[0].v, s[s.length - 1].v) : null};
+    if (it.kind === 'n') {   // record personal, nota la barem, poziția față de colegi
+      const norm = S.norms.find(n => 'n:' + n.id === it.id);
+      row.best = s.reduce((b, x) => (b == null || (norm.type === 'low' ? x.v < b.v : x.v > b.v)) ? x : b, null);
+      row.grade = norm.type === 'direct' ? null : normGrade(norm, st.gender, row.best.v, lvl);
+      row.pos = norm.type === 'direct' ? null : standing(norm, lvl, st.gender, st.id);
+    }
+    rows.push(row);
+  };
   for (const it of testItems()) {
     add(it, series(c.id, it.id, st.id));
     if (it.id === 'm:w') add({id: 'bmi', name: 'IMC (indice de masă corporală)', unit: 'kg/m²', kind: 'm', better: 'none'}, bmiSeries(c.id, st.id));
   }
   return rows;
 }
-
-function table(rows, title) {
+const resultsCell = r => r.s.map(x => `<b>${fmtN(x.v)}</b> <span style="color:#5a6661">(${fmtD(x.date).slice(0, 5)})</span>`).join(' → ');
+const diffCell = r => `<td class="num ${r.p?.cls || ''}">${r.p ? (r.p.d > 0 ? '+' : '') + fmtN(r.p.d) + ' · ' + r.p.txt : '–'}</td>`;
+function measuresTable(rows) {
   if (!rows.length) return '';
-  return `<h2>${title}</h2><table><thead><tr><th class="l">Proba</th><th>U.M.</th><th class="l">Rezultate (data)</th><th>Diferență</th><th>Evoluție</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td class="l">${esc(r.name)}</td><td>${esc(r.unit)}</td>
-      <td class="l num">${r.s.map(x => `<b>${fmtN(x.v)}</b> <span style="color:#5a6661">(${fmtD(x.date).slice(0, 5)})</span>`).join(' → ')}</td>
-      <td class="num ${r.p?.cls || ''}">${r.p ? (r.p.d > 0 ? '+' : '') + fmtN(r.p.d) : '–'}</td><td class="${r.p?.cls || ''}">${r.p?.txt || '–'}</td></tr>`).join('')}
-  </tbody></table>`;
+  return `<h2>Date antropometrice</h2><table><thead><tr><th class="l">Măsurătoarea</th><th>U.M.</th><th class="l">Rezultate (data)</th><th>Evoluție</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td class="l">${esc(r.name)}</td><td>${esc(r.unit)}</td><td class="l num">${resultsCell(r)}</td>${diffCell(r)}</tr>`).join('')}</tbody></table>`;
 }
-
+function testsTable(rows, st, lvl) {
+  if (!rows.length) return '';
+  const peers = `${st.gender === 'F' ? 'fetele' : 'băieții'}${lvl != null ? ' din ' + levelWords(lvl) : ''}`;
+  return `<h2>Probe de control</h2><table><thead><tr><th class="l">Proba</th><th class="l">Rezultate (data)</th><th>Record personal</th><th>Evoluție</th><th>Față de colegi*</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td class="l">${esc(r.name)} <span style="color:#5a6661">(${esc(r.unit)})</span></td><td class="l num">${resultsCell(r)}</td>
+      <td class="num"><b>${fmtN(r.best.v)}</b>${r.grade != null ? ` <span style="color:#5a6661">· nota ${r.grade}</span>` : ''}</td>${diffCell(r)}
+      <td>${r.pos ? `mai bun decât <b>${r.pos.pct}%</b>` : '<span style="color:#5a6661">–</span>'}</td></tr>`).join('')}</tbody></table>
+    <div style="font-size:11px;color:#5a6661;margin-top:4px">* comparat cu recordurile celorlalți elevi (${esc(peers)}) evaluați de același profesor, fără nume. „Nota” = nota la barem pentru recordul personal.</div>`;
+}
 // grafic mic: câte o bară pentru fiecare testare, la aceeași scară; ultima colorată după progres
 function chart(r) {
   const max = Math.max(...r.s.map(x => x.v)) || 1, W = 100, H = 18, last = r.s.length - 1;
@@ -43,16 +64,30 @@ function chart(r) {
 }
 
 export function reportHTML(c, st) {
-  const rows = reportRows(c, st), multi = rows.filter(r => r.s.length > 1);
-  return `<article class="rep">
-    <div class="r-head"><span>${esc(S.school.name || 'Unitatea de învățământ')}</span><span>An școlar ${esc(S.school.year)}</span></div>
+  const rows = reportRows(c, st), multi = rows.filter(r => r.s.length > 1), lvl = levelOf(c);
+  return `<article class="rep">${head(c)}
     <h1>Fișa de evoluție – Educație fizică și sport</h1>
     <div class="r-sub">Rezultatele testărilor din anul școlar</div>
     <div class="r-meta"><div><b>Elev</b>${esc(st.name)}</div><div><b>Clasa</b>${esc(st.from ? `${st.from} (${c.name})` : c.name)}</div><div><b>Sex</b>${GENDER[st.gender] || '–'}</div><div><b>Profesor</b>${esc(S.school.teacher || '–')}</div></div>
-    ${rows.length ? table(rows.filter(r => r.kind === 'm'), 'Date antropometrice') + table(rows.filter(r => r.kind === 'n'), 'Probe de control')
+    ${rows.length ? measuresTable(rows.filter(r => r.kind === 'm')) + testsTable(rows.filter(r => r.kind === 'n'), st, lvl)
       : '<p style="color:#5a6661">Nu sunt încă testări înregistrate pentru acest elev (tabul Testări).</p>'}
     ${multi.length ? `<h2>Evoluție</h2><div class="charts">${multi.map(chart).join('')}</div>` : ''}
     <h2>Observații și recomandări</h2><div class="obs">${esc(S.obs[c.id]?.[st.id] || '')}</div>
+    <div class="sign"><span>Profesor: ${esc(S.school.teacher)} ______________</span><span>Data: ______________</span></div>
+  </article>`;
+}
+
+/* ---- foaia pentru catalog: toate notele alese pentru catalog, pe module ---- */
+export function catalogSheetHTML(c) {
+  const lvl = levelOf(c);
+  return `<article class="rep">${head(c)}
+    <h1>Situația notelor – Educație fizică și sport</h1>
+    <div class="r-sub">Notele de trecut în catalog, pe module · generată la ${fmtD(iso(new Date()))}</div>
+    <div class="r-meta"><div><b>Clasa</b>${esc(c.name)}</div><div><b>Nivel</b>${esc(levelWords(lvl) || '–')}</div><div><b>Elevi</b>${c.students.length}</div><div><b>Profesor</b>${esc(S.school.teacher || '–')}</div></div>
+    <table class="cat"><thead><tr><th>Nr</th><th class="l">Numele elevului</th>${S.modules.map(m => `<th>${esc(m.name.replace('Modulul', 'Modul'))}</th>`).join('')}</tr></thead><tbody>
+    ${c.students.map((st, i) => `<tr><td>${i + 1}</td><td class="l">${esc(st.name)}${st.from ? ` <span style="color:#5a6661">(${esc(st.from)})</span>` : ''}</td>
+      ${S.modules.map(m => `<td class="num"><b>${catalogFor(c, st, m).map(x => x.g).join(', ')}</b></td>`).join('')}</tr>`).join('')}
+    </tbody></table>
     <div class="sign"><span>Profesor: ${esc(S.school.teacher)} ______________</span><span>Data: ______________</span></div>
   </article>`;
 }
@@ -62,44 +97,41 @@ function loadLib() {
   if (window.html2pdf) return Promise.resolve();
   return new Promise((ok, fail) => { const s = document.createElement('script'); s.src = HTML2PDF; s.onload = ok; s.onerror = fail; document.head.appendChild(s); });
 }
-const fileName = (c, students) => (students.length === 1 ? `Fisa ${students[0].name} ${c.name}` : `Fise ${c.name}`).replace(/[\\/:*?"<>|]/g, '_') + '.pdf';
-
-export async function makePdf(c, students) {
+const safe = s => s.replace(/[\\/:*?"<>|]/g, '_') + '.pdf';
+// pages = HTML-ul fiecărei pagini (<article class="rep">…); fiecare începe pe pagină nouă
+export async function pdfBlob(pages) {
   await loadLib();
-  // html2pdf își face singur un container ascuns; îi dăm fișele ca text, la lățimea unei pagini A4
-  const html = `<div style="width:740px">${students.map((st, i) => reportHTML(c, st).replace('<article class="rep"', `<article class="rep${i ? ' pb' : ''}"`)).join('')}</div>`;
+  const html = `<div style="width:740px">${pages.map((p, i) => i ? p.replace('<article class="rep"', '<article class="rep pb"') : p).join('')}</div>`;
   return await html2pdf().set({
     margin: [10, 10, 10, 10], image: {type: 'jpeg', quality: 0.95},
     html2canvas: {scale: 2, useCORS: true}, jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'},
     pagebreak: {mode: ['css', 'avoid-all'], before: '.pb'},
   }).from(html).outputPdf('blob');
 }
-
-// trimite PDF-ul prin meniul de partajare (pe telefon: WhatsApp, e-mail...); altfel îl descarcă
-export async function sharePdf(c, students, btn) {
+export const makePdf = (c, students) => pdfBlob(students.map(st => reportHTML(c, st)));
+// trimite prin meniul de partajare (pe telefon: WhatsApp, e-mail...); altfel descarcă
+async function deliver(pages, name, btn, mode) {
   const label = btn?.textContent;
   if (btn) { btn.disabled = true; btn.textContent = 'Se pregătește PDF-ul…'; }
   try {
-    const name = fileName(c, students), blob = await makePdf(c, students);
-    const file = new File([blob], name, {type: 'application/pdf'});
-    if (navigator.canShare && navigator.canShare({files: [file]})) {
+    const blob = await pdfBlob(pages), file = new File([blob], name, {type: 'application/pdf'});
+    if (mode === 'share' && navigator.canShare && navigator.canShare({files: [file]})) {
       try { await navigator.share({files: [file], title: name.replace('.pdf', '')}); }
       catch (e) { if (e.name !== 'AbortError') saveBlob(blob, name); }
     } else { saveBlob(blob, name); toast('PDF salvat în Descărcări'); }
   } catch (e) { toast('PDF-ul nu s-a putut crea. Verifică conexiunea la internet și încearcă din nou.'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = label; } }
 }
-export async function downloadPdf(c, students) {
-  try { saveBlob(await makePdf(c, students), fileName(c, students)); toast('PDF salvat în Descărcări'); }
-  catch (e) { toast('PDF-ul nu s-a putut crea. Verifică conexiunea la internet și încearcă din nou.'); }
-}
+const reportName = (c, students) => safe(students.length === 1 ? `Fisa ${students[0].name} ${c.name}` : `Fise ${c.name}`);
+export const sharePdf = (c, students, btn) => deliver(students.map(st => reportHTML(c, st)), reportName(c, students), btn, 'share');
+export const downloadPdf = (c, students, btn) => deliver(students.map(st => reportHTML(c, st)), reportName(c, students), btn, 'download');
 
 // în aplicație: fișa + câmp pentru observații + trimitere
 export function openReport(c, st) {
   openModal(`<div class="row2" style="margin-bottom:10px"><h3 class="grow" style="margin:0">Fișa elevului</h3>
       <button class="btn pri" id="repShare">Trimite PDF</button><button class="btn" id="repSave">Descarcă</button><button class="btn" data-act="close">Închide</button></div>
     <label class="f" style="margin-bottom:12px">Observații și recomandări (apar pe fișă)<textarea id="repObs" style="min-height:80px">${esc(S.obs[c.id]?.[st.id] || '')}</textarea></label>
-    <div id="repBody">${reportHTML(c, st)}</div>`, true);
+    <div id="repBody" style="overflow-x:auto">${reportHTML(c, st)}</div>`, true);
   const keepObs = () => {
     const r = path('obs', c.id), t = $('#repObs').value.trim();
     if ((r[st.id] || '') === t) return;
@@ -108,5 +140,15 @@ export function openReport(c, st) {
   };
   $('#repObs').onchange = keepObs;
   $('#repShare').onclick = e => { keepObs(); sharePdf(c, [st], e.currentTarget); };
-  $('#repSave').onclick = () => { keepObs(); downloadPdf(c, [st]); };
+  $('#repSave').onclick = e => { keepObs(); downloadPdf(c, [st], e.currentTarget); };
+}
+// foaia pentru catalog: previzualizare + trimitere / descărcare
+export function openCatalogSheet(c) {
+  const name = safe(`Note catalog ${c.name}`);
+  openModal(`<div class="row2" style="margin-bottom:10px"><h3 class="grow" style="margin:0">Foaie pentru catalog</h3>
+      <button class="btn pri" id="catShare">Trimite PDF</button><button class="btn" id="catSave">Descarcă</button><button class="btn" data-act="close">Închide</button></div>
+    <div class="small muted" style="margin-bottom:10px">Conține toate notele alese pentru catalog până azi, pe fiecare modul (tabul Note → coloana „În catalog”).</div>
+    <div style="overflow-x:auto">${catalogSheetHTML(c)}</div>`, true);
+  $('#catShare').onclick = e => deliver([catalogSheetHTML(c)], name, e.currentTarget, 'share');
+  $('#catSave').onclick = e => deliver([catalogSheetHTML(c)], name, e.currentTarget, 'download');
 }

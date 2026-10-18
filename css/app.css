@@ -144,3 +144,5 @@ td input{min-height:36px;padding:5px 8px;width:90px}
 .rep .obs{min-height:70px;border:1px solid var(--p-line);border-radius:6px;padding:8px;white-space:pre-wrap}
 .rep .sign{display:flex;justify-content:space-between;margin-top:22px;color:var(--p-muted)}
 .rep .chart,.rep table tr{break-inside:avoid}
+.rep table.cat td{padding:6px}
+.rep table.cat td.num b{font-size:14px;letter-spacing:.02em}

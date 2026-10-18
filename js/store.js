@@ -5,12 +5,17 @@ import {uid} from './util.js';
 export const KEY = 'catalogSport.v1';
 
 // Date care țin de o clasă: {classId: ...}. Sincronizarea le trimite într-un document per clasă.
-export const CLASS_KEYS = ['sessions', 'results', 'choice', 'tests', 'obs'];
+export const CLASS_KEYS = ['sessions', 'results', 'choice', 'tests', 'obs', 'catalog'];
+
+// niveluri de studiu: 0 = clasa pregătitoare, 1–12 = I–XII
+export const LEVELS = ['Pregătitoare', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
 export function defaults() {
   return {
-    school: {name: '', year: '2026–2027', teacher: ''},
-    classes: [],     // [{id, name, students: [{id, name, gender: 'B'|'F'|''}]}]
+    school: {year: '2026–2027', teacher: ''},
+    schools: [{id: 'sc1', name: ''}],   // școlile profesorului; fiecare clasă are schoolId
+    // [{id, name, schoolId, level?: 0–12 (dacă lipsește, se deduce din nume), students: [{id, name, gender: 'B'|'F'|'', from?: clasa de proveniență}]}]
+    classes: [],
     schedule: [],    // [{id, day: 1-6, start: 'HH:MM', end: 'HH:MM', classId}]
     // Date orientative pentru anul școlar 2026–2027 — se verifică în Setări.
     modules: [
@@ -20,7 +25,8 @@ export function defaults() {
       {id: uid(), name: 'Modulul 4', start: '2027-02-22', end: '2027-04-02'},
       {id: uid(), name: 'Modulul 5', start: '2027-04-12', end: '2027-06-18'},
     ],
-    // type: 'high' (mai mare = mai bine) | 'low' (mai mic = mai bine) | 'direct' (notă directă); t = praguri notele 10..5
+    // type: 'high' (mai mare = mai bine) | 'low' (mai mic = mai bine) | 'direct' (notă directă)
+    // t = baremul general (praguri pentru notele 10..5, B/F); lv = bareme pe niveluri {'9': {B: [...], F: [...]}}
     norms: [
       {id: uid(), name: 'Alergare viteză 50 m (exemplu)', unit: 's', type: 'low',
         t: {B: [7.0, 7.3, 7.6, 7.9, 8.2, 8.5], F: [7.8, 8.1, 8.4, 8.7, 9.0, 9.4]}},
@@ -41,7 +47,11 @@ export function defaults() {
     choice: {},     // {classId: {moduleId: {studentId: 'auto'|'att'|'norm'|'team'|'avg'|'max'}}}
     tests: {},      // {classId: {'m:<id>'|'n:<id>': [{id, date: 'YYYY-MM-DD', v: {studentId: număr}}]}}
     obs: {},        // {classId: {studentId: 'observații pentru fișă'}}
+    // notele trecute în catalog: {classId: {moduleId: {studentId: ['auto'|'att'|'navg'|'team'|'norm:<id>'|{m: notă}]}}}; lipsă = ['auto']
+    catalog: {},
     settings: {
+      // baremul generat din rezultate: ce procent din elevi primește fiecare notă (de la cei mai buni)
+      curve: [{g: 10, p: 10}, {g: 9, p: 15}, {g: 8, p: 20}, {g: 7, p: 20}, {g: 6, p: 20}, {g: 5, p: 15}],
       scale: [{min: 90, g: 10}, {min: 80, g: 9}, {min: 70, g: 8}, {min: 60, g: 7}, {min: 50, g: 6}, {min: 40, g: 5}],
       minGrade: 4,
       autoRule: 'max',   // nota automată când există și prezență, și norme: 'max' | 'avg' | 'norm'
@@ -68,10 +78,15 @@ export function normalize(d) {
     ui: Object.assign(def.ui, d.ui || {}),
     measures: d.measures || def.measures,
     teams: d.teams || [],
+    // versiunile vechi aveau o singură școală în school.name → devine prima școală (id fix, la fel pe toate dispozitivele)
+    schools: d.schools && d.schools.length ? d.schools : [{id: 'sc1', name: (d.school && d.school.name) || ''}],
   });
+  delete n.school.name;
+  n.classes.forEach(c => { if (!c.schoolId || !n.schools.some(s => s.id === c.schoolId)) c.schoolId = n.schools[0].id; });
   CLASS_KEYS.forEach(k => { n[k] = n[k] || {}; });
   return n;
 }
+export const schoolOf = c => S.schools.find(s => s.id === c?.schoolId) || S.schools[0];
 
 function load() {
   try { const raw = localStorage.getItem(KEY); if (raw) return normalize(JSON.parse(raw)); } catch (e) {}
