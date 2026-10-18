@@ -161,6 +161,38 @@ export function parseSetup(text) {
   } catch (e) { return null; }
 }
 
+/* ---- grupe comune cu un coleg care are tabelul lui ----
+   Clasele cu același id în ambele tabele (grupele copiate) se completează reciproc: listele de elevi
+   și datele (prezență, note, testări) se unesc. Ștergerile nu se transmit. Linkul colegului stă doar pe acest dispozitiv. */
+const PEER_KEY = 'catalogSport.peer';
+export const peerLinked = () => !!readLS(PEER_KEY, null);
+export function setPeer(text) {
+  const p = parseSetup(text);
+  if (!p) throw Object.assign(new Error('link'), {code: 'link_invalid'});
+  if (p.url === CFG.url) throw Object.assign(new Error('same'), {code: 'same_table'});
+  writeLS(PEER_KEY, p);
+}
+export function unsetPeer() { try { localStorage.removeItem(PEER_KEY); } catch (e) {} }
+export async function mergeWithPeer() {
+  const peer = readLS(PEER_KEY, null);
+  await run();                                         // întâi tabelul meu la zi
+  const other = (await api('get', null, peer)).docs || {};
+  const oc = other.core;
+  const shared = oc ? S.classes.filter(c => (oc.classes || []).some(x => x.id === c.id)) : [];
+  if (!shared.length) return [];
+  const send = {core: Object.assign({}, oc, {classes: oc.classes.map(x => { const m = S.classes.find(c => c.id === x.id); return m ? merge3(undefined, m, x) : x; })})};
+  S.classes = S.classes.map(c => { const o = oc.classes.find(x => x.id === c.id); return o ? merge3(undefined, c, o) : c; });
+  for (const c of shared) {
+    const mine = {}; CLASS_KEYS.forEach(k => mine[k] = S[k][c.id] || {});
+    const m = merge3(undefined, mine, other['c_' + c.id] || {}) || mine;
+    CLASS_KEYS.forEach(k => S[k][c.id] = m[k] || {});
+    send['c_' + c.id] = m;
+  }
+  await api('put', {docs: send}, peer);                // la coleg
+  persistLocal(); onRemote(); queueSync();              // la mine
+  return shared.map(c => c.name);
+}
+
 /* ---- conectare / deconectare din Setări ---- */
 export async function link(url, token) {
   await api('ping', null, {url, token});   // aruncă eroare dacă adresa sau codul nu sunt bune
