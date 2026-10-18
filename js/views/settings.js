@@ -3,7 +3,7 @@ import {S, save, setState, defaults, normalize} from '../store.js';
 import {esc, uid, iso, toMin, DAYS, ask, toast, openModal, closeModal, $} from '../util.js';
 import {AUTO_RULES} from '../calc.js';
 import {render, view, setHead, classOpts} from '../ui.js';
-import {linked, link, unlink, connect} from '../sync.js';
+import {linked, link, unlink, connect, setupLink, parseSetup} from '../sync.js';
 import {saveBlob} from '../files.js';
 import {initAtt} from './attendance.js';
 
@@ -16,9 +16,10 @@ function renderSet() {
   view().innerHTML = `
   <div class="card"><h2>Salvare în Google Sheets</h2>
     ${linked() ? `<div class="small" style="margin-bottom:8px">Conectat. Stare: <b>${esc($('#sync').textContent || '–')}</b></div>
-      <div class="row2"><button class="btn pri" data-act="gSync">Sincronizează acum</button><button class="btn bad" data-act="gOff">Deconectează</button></div>`
-    : `<div class="small muted" style="margin-bottom:8px">Lipește adresa aplicației web din Google Apps Script și codul secret (le găsești în ghidul de instalare). După conectare, datele apar la fel pe telefon și pe calculator.</div>
-      <label class="f">Adresa aplicației web (se termină în /exec)<input type="text" id="gUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
+      <div class="row2"><button class="btn pri" data-act="gSync">Sincronizează acum</button><button class="btn" data-act="gLink">Copiază linkul de conectare</button><button class="btn bad" data-act="gOff">Deconectează</button></div>
+      <div class="small muted" style="margin-top:8px">Linkul de conectare conectează alt dispozitiv la același tabel, dintr-o singură atingere. Conține codul secret: trimite-l doar ție sau persoanei care folosește acest tabel.</div>`
+    : `<div class="small muted" style="margin-bottom:8px">Lipește linkul de conectare primit, sau adresa aplicației web din Google Apps Script și codul secret. După conectare, datele apar la fel pe telefon și pe calculator.</div>
+      <label class="f">Linkul de conectare sau adresa aplicației web (se termină în /exec)<input type="text" id="gUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
       <label class="f" style="margin-top:8px">Cod secret<input type="text" id="gTok" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <button class="btn pri" style="margin-top:10px" data-act="gOn">Conectează</button>`}</div>
 
@@ -109,7 +110,8 @@ export default {
   key: 'set', title: 'Setări', render: renderSet,
   actions: {
     async gOn(el) {
-      const url = $('#gUrl').value.trim(), token = $('#gTok').value.trim();
+      const pasted = parseSetup($('#gUrl').value);   // s-a lipit un link de conectare întreg
+      const url = pasted ? pasted.url : $('#gUrl').value.trim(), token = pasted ? pasted.token : $('#gTok').value.trim();
       if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('Adresa trebuie să înceapă cu https://script.google.com și să se termine în /exec'); return; }
       if (!token) { toast('Scrie codul secret'); return; }
       el.disabled = true; el.textContent = 'Se verifică…';
@@ -121,6 +123,11 @@ export default {
     },
     gOff() { ask('Deconectezi acest dispozitiv de la Google? Datele din tabel rămân neatinse.', () => { unlink(); render(); }, 'Deconectează'); },
     async gSync() { await connect(); render(true); },
+    async gLink() {
+      const l = setupLink();
+      try { await navigator.clipboard.writeText(l); toast('Linkul de conectare a fost copiat'); }
+      catch (e) { openModal(`<h3>Linkul de conectare</h3><textarea readonly style="min-height:110px" onfocus="this.select()">${esc(l)}</textarea><div class="row2" style="margin-top:12px"><button class="btn right" data-act="close">Închide</button></div>`); }
+    },
     schAdd() { S.schedule.push({id: uid(), day: Math.min(5, Math.max(1, new Date().getDay())), start: '08:00', end: '08:50', classId: S.classes[0]?.id || ''}); save(); render(true); },
     schDel(el) { S.schedule = S.schedule.filter(x => x.id !== el.dataset.id); save(); render(true); },
     modAdd() { S.modules.push({id: uid(), name: 'Modul nou', start: iso(new Date()), end: iso(new Date())}); save(); render(true); },
