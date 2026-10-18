@@ -14,7 +14,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin === location.origin) {
     // fișierele aplicației: internet întâi, cache dacă nu e semnal
-    e.respondWith(fetch(req).then(r => {
+    e.respondWith(fetch(req, {cache: 'no-cache'}).then(r => {
       if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return r;
     }).catch(() => caches.match(req, {ignoreSearch: true}).then(hit => hit || caches.match('index.html'))));
