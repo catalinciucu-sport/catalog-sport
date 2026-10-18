@@ -1,7 +1,7 @@
 // Pornirea aplicației: taburile, redesenarea ecranului și legarea evenimentelor.
 // Fiecare ecran (js/views/*.js) exportă {key, title, render, actions, changes, inputs};
 // elementele din pagină au data-act="numeAcțiune" (click) sau data-ch="numeSchimbare" (change/input).
-import {S, save, onSave} from './store.js';
+import {S, onSave, persistLocal} from './store.js';
 import {ICON, $, closeModal} from './util.js';
 import {setRenderer} from './ui.js';
 import {queueSync, connect, onRemoteData} from './sync.js';
@@ -17,7 +17,8 @@ const VIEWS = [attendance, grades, norms, tests, classes, settings];
 const byKey = Object.fromEntries(VIEWS.map(v => [v.key, v]));
 
 const ACTIONS = {
-  tab(el) { S.ui.tab = el.dataset.k; save(); closeModal(); render(); window.scrollTo(0, 0); },
+  // tabul ales e doar o preferință a acestui dispozitiv: se salvează local, nu se sincronizează
+  tab(el) { S.ui.tab = el.dataset.k; persistLocal(); closeModal(); render(); window.scrollTo(0, 0); },
   close: closeModal,
 };
 const CHANGES = {}, INPUTS = {};
@@ -43,7 +44,10 @@ $('#fileImp').addEventListener('change', e => { if (e.target.files.length) onImp
 $('#fileBak').addEventListener('change', e => { if (e.target.files[0]) onBackupFile(e.target.files[0]); });
 
 onSave(queueSync);
-onRemoteData(() => { if (!A.classId || !S.classes.some(c => c.id === A.classId)) initAtt(); render(true); });
+onRemoteData(() => {
+  if (!A.classId || !S.classes.some(c => c.id === A.classId)) initAtt();
+  if (!document.querySelector('#modal:not(.hidden)')) render(true);   // nu închide o fereastră deschisă
+});
 
 initAtt();
 S.ui.tab = 'att';

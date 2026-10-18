@@ -1,17 +1,22 @@
 // Sincronizare cu Google Sheets prin scriptul Code.gs (vezi google-apps-script/).
-// Documente trimise: "meta" (ora ultimei modificări), "core" (clase, orar, module, norme, setări)
-// și "c_<classId>" cu datele clasei (CLASS_KEYS). Trimite doar ce s-a schimbat.
+// Documente: "core" (școala, clase, orar, module, norme, echipe, setări) și "c_<classId>" cu datele
+// clasei (CLASS_KEYS). Fiecare dispozitiv ține minte în BASE ultima versiune sincronizată a fiecărui
+// document. La fiecare sincronizare compară: ce s-a schimbat doar aici se trimite, ce s-a schimbat doar
+// în Google se preia, iar dacă s-a schimbat în ambele locuri se combină (merge3). Nu contează ora.
 // Pe lângă date, trimite foile citibile „Prezență <clasa>” și „Note <clasa>”.
-import {S, CLASS_KEYS, setState} from './store.js';
+import {S, CLASS_KEYS, persistLocal} from './store.js';
 import {fmtD} from './util.js';
 import {reasonExcused, finalFor} from './calc.js';
 import {setSync} from './ui.js';
 
-const CFG_KEY = 'catalogSport.google';
-let CFG = (() => { try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch (e) { return {}; } })();
-let lastW = {}, syncT = null, syncing = false, again = false, online = false;
+const CFG_KEY = 'catalogSport.google', BASE_KEY = 'catalogSport.base';
+const readLS = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let CFG = readLS(CFG_KEY, {});
+let BASE = readLS(BASE_KEY, {});
+let syncT = null, syncing = false, again = false, online = false;
 let onRemote = () => {};
-export const onRemoteData = fn => { onRemote = fn; };   // apelat când s-au preluat date mai noi din Google
+export const onRemoteData = fn => { onRemote = fn; };   // apelat când s-au preluat modificări din Google
 export const linked = () => !!(CFG.url && CFG.token);
 
 async function api(action, extra, cfg = CFG) {
@@ -22,17 +27,40 @@ async function api(action, extra, cfg = CFG) {
   return j;
 }
 
+/* ---- documentele locale ---- */
 function buildDocs() {
-  const docs = {
-    meta: JSON.stringify({updatedAt: S.updatedAt || 0}),
-    // "core" = tot ce nu ține de o clasă anume (școala, clase, orar, module, norme, echipe, setări...)
-    core: JSON.stringify(Object.fromEntries(Object.entries(S).filter(([k]) => !CLASS_KEYS.includes(k) && k !== 'ui' && k !== 'updatedAt'))),
-  };
-  S.classes.forEach(c => {
-    const d = {}; CLASS_KEYS.forEach(k => d[k] = S[k][c.id] || {});
-    docs['c_' + c.id] = JSON.stringify(d);
-  });
+  const docs = {core: JSON.stringify(Object.fromEntries(Object.entries(S).filter(([k]) => !CLASS_KEYS.includes(k) && k !== 'ui' && k !== 'updatedAt')))};
+  S.classes.forEach(c => { const d = {}; CLASS_KEYS.forEach(k => d[k] = S[k][c.id] || {}); docs['c_' + c.id] = JSON.stringify(d); });
   return docs;
+}
+function applyDoc(k, d) {
+  if (k === 'core') { if (d) Object.assign(S, d); return; }
+  const id = k.slice(2);
+  CLASS_KEYS.forEach(f => { if (d) S[f][id] = d[f] || {}; else delete S[f][id]; });
+}
+
+/* ---- combinarea a două versiuni pornind de la versiunea comună (b) ---- */
+const J = x => JSON.stringify(x);
+const isObj = x => x && typeof x === 'object' && !Array.isArray(x);
+const isIdList = x => Array.isArray(x) && x.every(o => isObj(o) && 'id' in o);
+const byId = a => Object.fromEntries((a || []).map(o => [o.id, o]));
+export function merge3(b, l, r) {
+  if (J(l) === J(r)) return l;
+  if (J(l) === J(b)) return r;          // s-a schimbat doar în Google
+  if (J(r) === J(b)) return l;          // s-a schimbat doar aici
+  if (isIdList(l) && isIdList(r)) {      // liste cu id (clase, elevi, norme, echipe...): element cu element
+    const bm = byId(isIdList(b) ? b : []), lm = byId(l), rm = byId(r);
+    return [...l.map(x => x.id), ...r.map(x => x.id).filter(id => !lm[id])]
+      .map(id => merge3(bm[id], lm[id], rm[id])).filter(v => v !== undefined);
+  }
+  if (isObj(l) && isObj(r)) {            // obiecte (ore, elevi, rezultate...): cheie cu cheie
+    const out = {};
+    new Set([...Object.keys(l), ...Object.keys(r)]).forEach(k => { const v = merge3(isObj(b) ? b[k] : undefined, l[k], r[k]); if (v !== undefined) out[k] = v; });
+    return out;
+  }
+  // aceeași oră creată pe ambele dispozitive (fără versiune comună): o bifă de pe oricare rămâne
+  if (b === undefined && typeof l === 'boolean' && typeof r === 'boolean') return l || r;
+  return l;                              // aceeași valoare schimbată diferit în ambele locuri: rămâne cea de aici
 }
 
 /* ---- foile citibile din Google Sheets ---- */
@@ -58,78 +86,75 @@ function buildViews(c) {
   return {[sheetName('Prezență ', c)]: att, [sheetName('Note ', c)]: grades};
 }
 
-/* ---- trimitere ---- */
-export function queueSync() { if (!linked()) return; setSync('se salvează…'); clearTimeout(syncT); syncT = setTimeout(flush, 1500); }
-async function flush() {
-  if (!linked() || !online) return;
-  if (syncing) { again = true; return; }
-  syncing = true;
-  try {
-    const docs = buildDocs(), send = {}, sent = {};
-    for (const k in docs) if (lastW[k] !== docs[k]) { send[k] = JSON.parse(docs[k]); sent[k] = docs[k]; }
-    for (const k in lastW) if (!(k in docs)) { send[k] = null; sent[k] = null; }
-    if (Object.keys(send).some(k => k !== 'meta')) {
-      const views = {};
-      const changed = 'core' in send ? S.classes : S.classes.filter(c => ('c_' + c.id) in send);
-      changed.forEach(c => Object.assign(views, buildViews(c)));
-      await api('put', {docs: send, views, allViews: viewNames()});
-      for (const k in sent) { if (sent[k] == null) delete lastW[k]; else lastW[k] = sent[k]; }
-    } else lastW.meta = docs.meta;   // doar s-a schimbat tabul: nimic de trimis
-    setSync('✓ salvat în Google');
-  } catch (e) {
-    setSync(e.code === 'cod_gresit' ? 'cod secret greșit' : 'offline – salvat local');
-    clearTimeout(syncT); syncT = setTimeout(flush, 20000);
+/* ---- o sincronizare completă: citește Google, preia / combină, trimite ce e nou aici ---- */
+async function syncNow() {
+  const remote = (await api('get')).docs || {};
+  delete remote.meta;   // document folosit de versiuni mai vechi ale aplicației
+  const R = Object.fromEntries(Object.entries(remote).map(([k, v]) => [k, J(v)]));
+  const L = buildDocs();
+  const send = {}, sentStr = {};
+  let took = false;
+  // întâi „core” (lista de clase), apoi clasele
+  const keys = [...new Set([...Object.keys(L), ...Object.keys(R), ...Object.keys(BASE)])].sort((a, b) => (a === 'core' ? -1 : b === 'core' ? 1 : 0));
+  for (const k of keys) {
+    const l = L[k], r = R[k], b = BASE[k];
+    if (l === r) { if (l === undefined) delete BASE[k]; else BASE[k] = l; continue; }
+    const localChanged = l !== b, remoteChanged = r !== b;
+    if (remoteChanged && !localChanged) {          // doar în Google
+      applyDoc(k, r === undefined ? null : JSON.parse(r)); took = true;
+      if (r === undefined) delete BASE[k]; else BASE[k] = r;
+    } else if (localChanged && !remoteChanged) {   // doar aici
+      send[k] = l === undefined ? null : JSON.parse(l); sentStr[k] = l;
+    } else {                                       // în ambele: se combină
+      const m = merge3(b === undefined ? undefined : JSON.parse(b), l === undefined ? undefined : JSON.parse(l), r === undefined ? undefined : JSON.parse(r));
+      applyDoc(k, m === undefined ? null : m); took = true;
+      send[k] = m === undefined ? null : m; sentStr[k] = m === undefined ? undefined : J(m);
+    }
   }
-  syncing = false;
-  if (again) { again = false; flush(); }
+  if (took) { persistLocal(); onRemote(); }
+  if (Object.keys(send).length) {
+    const views = {};
+    ('core' in send ? S.classes : S.classes.filter(c => ('c_' + c.id) in send)).forEach(c => Object.assign(views, buildViews(c)));
+    await api('put', {docs: send, views, allViews: viewNames()});
+    for (const k in sentStr) { if (sentStr[k] === undefined) delete BASE[k]; else BASE[k] = sentStr[k]; }
+  }
+  writeLS(BASE_KEY, BASE);
 }
 
-/* ---- preluare ---- */
-function adopt(got) {
-  const core = got.core, n = Object.assign({}, core, {ui: S.ui, updatedAt: (got.meta && got.meta.updatedAt) || 0});
-  CLASS_KEYS.forEach(k => n[k] = {});
-  (core.classes || []).forEach(c => { const d = got['c_' + c.id]; if (d) CLASS_KEYS.forEach(k => n[k][c.id] = d[k] || {}); });
-  setState(n);
-}
-// dacă în Google sunt date mai noi (ai lucrat pe alt dispozitiv) și aici nu e nimic netrimis, le preia
-async function pullNewer() {
-  const got = (await api('get')).docs || {};
-  const remoteT = (got.meta && got.meta.updatedAt) || 0;
-  const firstTime = !Object.keys(lastW).length;
-  const localDirty = !firstTime && lastW.meta !== buildDocs().meta;
-  if (got.core && !localDirty && (remoteT > (S.updatedAt || 0) || !S.classes.length)) {
-    lastW = {}; for (const k in got) lastW[k] = JSON.stringify(got[k]);
-    adopt(got); onRemote();
-  } else if (firstTime) {
-    for (const k in got) lastW[k] = JSON.stringify(got[k]);
+async function run() {
+  if (!linked()) return;
+  if (syncing) { again = true; return; }
+  syncing = true;
+  try { await syncNow(); online = true; setSync('✓ salvat în Google'); }
+  catch (e) {
+    online = false;
+    setSync(e.code === 'cod_gresit' ? 'cod secret greșit' : 'offline – salvat local');
+    if (e.code !== 'cod_gresit') { clearTimeout(syncT); syncT = setTimeout(run, 20000); }
   }
+  syncing = false;
+  if (again) { again = false; run(); }
 }
+
+export function queueSync() { if (!linked()) return; setSync('se salvează…'); clearTimeout(syncT); syncT = setTimeout(run, 1500); }
 export async function connect() {
   if (!linked()) { setSync('doar pe acest dispozitiv'); return; }
   setSync('se conectează…');
-  try { await pullNewer(); online = true; flush(); }
-  catch (e) {
-    online = false;
-    if (e.code === 'cod_gresit') { setSync('cod secret greșit'); return; }
-    setSync('offline – salvat local'); setTimeout(connect, 20000);
-  }
+  await run();
 }
 
 /* ---- conectare / deconectare din Setări ---- */
 export async function link(url, token) {
   await api('ping', null, {url, token});   // aruncă eroare dacă adresa sau codul nu sunt bune
-  CFG = {url, token};
-  try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) {}
-  lastW = {}; await connect();
+  CFG = {url, token}; writeLS(CFG_KEY, CFG);
+  BASE = {}; writeLS(BASE_KEY, BASE);       // prima sincronizare unește datele de aici cu cele din Google
+  await connect();
 }
 export function unlink() {
-  CFG = {}; online = false;
-  try { localStorage.removeItem(CFG_KEY); } catch (e) {}
+  CFG = {}; BASE = {}; online = false;
+  try { localStorage.removeItem(CFG_KEY); localStorage.removeItem(BASE_KEY); } catch (e) {}
   setSync('doar pe acest dispozitiv');
 }
 
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState !== 'visible' || !linked() || !online || syncing) return;
-  try { await pullNewer(); } catch (e) {}
-});
-window.addEventListener('online', () => { if (linked()) online ? flush() : connect(); });
+// când revii în aplicație sau revine internetul: verifică dacă ai lucrat între timp pe alt dispozitiv
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run(); });
+window.addEventListener('online', run);
