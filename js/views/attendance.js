@@ -1,5 +1,5 @@
 // Ecranul „Prezență”: clasa cu care ai oră, listă cu bifă, motive de absență, istoricul orelor.
-import {S, save, cls, path} from '../store.js';
+import {S, save, cls, path, persistLocal} from '../store.js';
 import {esc, iso, fmtD, toMin, wday, nrm, DAYS, ICON, uid, openModal, closeModal, ask, toast, $} from '../util.js';
 import {moduleFor, attStats} from '../calc.js';
 import {render, view, setHead, classOpts, noClasses} from '../ui.js';
@@ -127,7 +127,7 @@ export default {
     },
   },
   changes: {
-    attClass(el) { Object.assign(A, {classId: el.value, info: null, slot: slotsFor(el.value, A.date)[0]}); S.ui.lastClass = el.value; save(); render(); },
+    attClass(el) { Object.assign(A, {classId: el.value, info: null, slot: slotsFor(el.value, A.date)[0]}); S.ui.lastClass = el.value; persistLocal(); render(); },
     attDate(el) { if (!el.value) return; Object.assign(A, {date: el.value, info: null, slot: slotsFor(A.classId, el.value)[0]}); render(); },
     attSlot(el) { A.slot = el.value; render(); },
   },
