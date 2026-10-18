@@ -1,10 +1,10 @@
 // Pornirea aplicației: taburile, redesenarea ecranului și legarea evenimentelor.
 // Fiecare ecran (js/views/*.js) exportă {key, title, render, actions, changes, inputs};
 // elementele din pagină au data-act="numeAcțiune" (click) sau data-ch="numeSchimbare" (change/input).
-import {S, onSave, persistLocal} from './store.js';
-import {ICON, $, closeModal} from './util.js';
+import {S, onSave, persistLocal, setState, defaults} from './store.js';
+import {ICON, $, closeModal, ask, toast} from './util.js';
 import {setRenderer} from './ui.js';
-import {queueSync, connect, onRemoteData, syncNowBtn} from './sync.js';
+import {queueSync, connect, onRemoteData, syncNowBtn, parseSetup, currentUrl, linked, link, unlink} from './sync.js';
 import attendance, {A, initAtt} from './views/attendance.js';
 import grades from './views/grades.js';
 import norms from './views/norms.js';
@@ -54,4 +54,20 @@ initAtt();
 S.ui.tab = 'att';
 render();
 connect();
+
+// deschis dintr-un link de conectare: se conectează la tabelul din link
+const setup = parseSetup(location.hash);
+if (setup) {
+  history.replaceState(null, '', location.pathname);
+  if (setup.url !== currentUrl()) {
+    const other = linked();
+    ask(other ? 'Conectezi aplicația la alt tabel Google? Datele de pe acest dispozitiv se înlocuiesc cu cele din tabelul nou (cele vechi rămân în tabelul lor).'
+              : 'Conectezi aplicația la tabelul Google din acest link?', async () => {
+      try {
+        if (other) { unlink(); setState(defaults()); initAtt(); }
+        await link(setup.url, setup.token); render(); toast('Conectat la Google Sheets');
+      } catch (e) { toast(e.code === 'cod_gresit' ? 'Linkul nu mai este valabil (cod greșit).' : 'Nu am putut ajunge la tabel. Verifică internetul și deschide linkul din nou.'); }
+    }, 'Conectează');
+  }
+}
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
