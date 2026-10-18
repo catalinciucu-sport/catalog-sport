@@ -32,6 +32,12 @@ header.top{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--
 header.top h1{font:700 22px/1.1 var(--f-display);margin:0;letter-spacing:.01em}
 header.top span{opacity:.85;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 header.top #sync{margin-left:auto;font-size:12px;flex:none;opacity:.9}
+#syncBtn{flex:none;align-self:center;width:36px;height:36px;margin:-6px -6px -6px 0;border:0;border-radius:50%;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer}
+#syncBtn svg{width:20px;height:20px}
+#syncBtn:active{background:rgba(255,255,255,.18)}
+#syncBtn.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#syncBtn.spin svg{animation:none;opacity:.5}}
 main{max-width:860px;margin:0 auto;padding-block:12px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom, 0px);padding-left:env(safe-area-inset-left, 0px);padding-right:env(safe-area-inset-right, 0px)}
 nav.tabs button{flex:1;min-width:0;border:0;background:none;padding:8px 1px 10px;font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
