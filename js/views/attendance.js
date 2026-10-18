@@ -2,7 +2,7 @@
 import {S, save, cls, path, persistLocal} from '../store.js';
 import {esc, iso, fmtD, toMin, wday, nrm, DAYS, ICON, uid, openModal, closeModal, ask, toast, $} from '../util.js';
 import {moduleFor, attStats} from '../calc.js';
-import {render, view, setHead, classOpts, noClasses} from '../ui.js';
+import {render, view, setHead, classOpts, noClasses, fromTag} from '../ui.js';
 import {linked} from '../sync.js';
 
 // starea ecranului (clasa, data și ora afișate)
@@ -61,7 +61,7 @@ function renderAtt() {
     const why = isAbs ? `<button class="why ${r.r ? 'set' : ''}" data-act="why" data-id="${st.id}">${esc(r.r || 'Motiv?')}</button>` : '';
     return `<div class="st ${on ? 'on' : ''} ${isAbs ? 'abs' : ''}" data-act="tog" data-id="${st.id}" role="checkbox" aria-checked="${!!on}">
       <span class="chk">${ICON.check}</span><span class="nr">${i + 1}</span>
-      <span class="nm">${esc(st.name)}</span>${why}${pct != null ? `<span class="pct">${pct}%</span>` : ''}</div>`;
+      <span class="nm">${esc(st.name)}${fromTag(st)}</span>${why}${pct != null ? `<span class="pct">${pct}%</span>` : ''}</div>`;
   }).join('');
   view().innerHTML = `${banner}
   <div class="card">

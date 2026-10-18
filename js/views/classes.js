@@ -23,6 +23,7 @@ function clsModal(id) {
     <div class="row2" style="margin:12px 0 4px"><b class="grow">Elevi (${c.students.length})</b><button class="btn sm" data-act="stSort" data-id="${c.id}">Sortează A–Z</button></div>
     <div>${c.students.map((st, i) => `<div class="item"><span class="nr">${i + 1}</span>
       <input type="text" class="grow" value="${esc(st.name)}" data-ch="stName" data-c="${c.id}" data-id="${st.id}">
+      <input type="text" style="width:74px" value="${esc(st.from || '')}" placeholder="clasa" title="Clasa de proveniență (pentru grupe)" data-ch="stFrom" data-c="${c.id}" data-id="${st.id}">
       <select style="width:72px" data-ch="stG" data-c="${c.id}" data-id="${st.id}"><option value="">–</option><option ${st.gender === 'B' ? 'selected' : ''}>B</option><option ${st.gender === 'F' ? 'selected' : ''}>F</option></select>
       <button class="btn sm bad" data-act="stDel" data-c="${c.id}" data-id="${st.id}" aria-label="Șterge elevul">✕</button></div>`).join('')}</div>
     <div class="row2" style="margin-top:8px"><input type="text" class="grow" id="newSt" placeholder="Nume elev nou"><select id="newG" style="width:72px"><option value="">–</option><option>B</option><option>F</option></select><button class="btn sm" data-act="stAdd" data-id="${c.id}">Adaugă</button></div>
@@ -47,7 +48,7 @@ function doImport() {
     for (const s of p.students) {
       const ex = c.students.find(x => nrm(x.name) === nrm(s.name));
       if (ex) { if (!ex.gender && s.gender) ex.gender = s.gender; continue; }
-      c.students.push({id: uid(), name: s.name, gender: s.gender}); ns++;
+      c.students.push({id: uid(), name: s.name, gender: s.gender, ...(s.from ? {from: s.from} : {})}); ns++;
     }
     sortStudents(c);
   }
@@ -95,6 +96,7 @@ export default {
   },
   changes: {
     stName(el) { const st = cls(el.dataset.c).students.find(s => s.id === el.dataset.id); if (el.value.trim()) st.name = el.value.trim(); save(); },
+    stFrom(el) { const st = cls(el.dataset.c).students.find(s => s.id === el.dataset.id), v = el.value.trim(); if (v) st.from = v; else delete st.from; save(); },
     stG(el) { cls(el.dataset.c).students.find(s => s.id === el.dataset.id).gender = el.value; S.norms.forEach(n => recalcNorm(n.id)); save(); },
     pUse(el) { PENDING[+el.dataset.i].use = el.checked; },
     pName(el) { PENDING[+el.dataset.i].name = el.value; },

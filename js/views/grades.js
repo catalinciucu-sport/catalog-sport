@@ -2,7 +2,7 @@
 import {S, save, cls, path} from '../store.js';
 import {esc, fmtD} from '../util.js';
 import {defaultModule, sessionsIn, attStats, finalFor, normsUsed, rres, CRITERIA, AUTO_RULES} from '../calc.js';
-import {render, view, setHead, classOpts, modOpts, gTag, noClasses} from '../ui.js';
+import {render, view, setHead, classOpts, modOpts, gTag, noClasses, fromTag, nameWithClass} from '../ui.js';
 import {download} from '../files.js';
 import {linked} from '../sync.js';
 import {A} from './attendance.js';
@@ -20,7 +20,7 @@ function renderGrades() {
   const ns = normsUsed(c.id, mod.id), r = rres(c.id, mod.id);
   const rows = c.students.map((st, i) => {
     const f = finalFor(c, st, mod);
-    return `<tr><td>${i + 1}</td><td class="l nmc">${esc(st.name)}${f.team ? `<div class="small" style="color:var(--accent)">${esc(f.team.name)}</div>` : ''}</td>
+    return `<tr><td>${i + 1}</td><td class="l nmc">${esc(st.name)}${fromTag(st)}${f.team ? `<div class="small" style="color:var(--accent)">${esc(f.team.name)}</div>` : ''}</td>
       <td class="small">${f.a.pct != null ? f.a.pct + '%' : '–'}<div class="muted" style="font-size:11px">${f.a.pres}/${f.a.total - f.a.exc}${f.a.exc ? ' (+' + f.a.exc + ' mot.)' : ''}</div></td>
       <td>${gTag(f.gp)}</td>
       ${ns.map(n => { const x = r[n.id]?.[st.id]; return `<td>${gTag(x?.g)}${x && x.v != null && n.type !== 'direct' ? `<div class="muted" style="font-size:11px">${x.v} ${esc(n.unit)}</div>` : ''}</td>`; }).join('')}
@@ -43,7 +43,7 @@ function exportGrades() {
     ...ns.flatMap(n => n.type === 'direct' ? [n.name] : [n.name + ' (' + n.unit + ')', n.name + ' – notă']), 'Medie norme', 'Nota finală', 'Sursa']];
   c.students.forEach((st, i) => {
     const f = finalFor(c, st, mod);
-    rows.push([i + 1, st.name, st.gender || '', f.a.total - f.a.exc, f.a.pres, f.a.abs, f.a.exc, f.a.pct ?? '', f.gp ?? '',
+    rows.push([i + 1, nameWithClass(st), st.gender || '', f.a.total - f.a.exc, f.a.pres, f.a.abs, f.a.exc, f.a.pct ?? '', f.gp ?? '',
       ...ns.flatMap(n => { const x = r[n.id]?.[st.id]; return n.type === 'direct' ? [x?.g ?? ''] : [x?.v ?? '', x?.g ?? '']; }),
       f.avgN != null ? +f.avgN.toFixed(2) : '', f.g ?? '', f.src]);
   });
@@ -54,7 +54,7 @@ function exportAtt() {
   const rows = [['Nr', 'Nume', ...ss.map(([k]) => { const [d, s] = k.split('|'); return fmtD(d).slice(0, 5) + (s !== 'ora' ? ' ' + s : ''); }), 'Prezent', 'Absent', 'Motivat', '%']];
   c.students.forEach((st, i) => {
     const a = attStats(c.id, st.id, mod);
-    rows.push([i + 1, st.name, ...ss.map(([, s]) => { const r = s[st.id]; return !r ? '' : r.p ? 'P' : 'A' + (r.r ? ' – ' + r.r : ''); }), a.pres, a.abs, a.exc, a.pct ?? '']);
+    rows.push([i + 1, nameWithClass(st), ...ss.map(([, s]) => { const r = s[st.id]; return !r ? '' : r.p ? 'P' : 'A' + (r.r ? ' – ' + r.r : ''); }), a.pres, a.abs, a.exc, a.pct ?? '']);
   });
   download(rows, `Prezenta ${c.name} ${mod.name}`, 'Prezenta');
 }

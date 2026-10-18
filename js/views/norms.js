@@ -2,7 +2,7 @@
 import {S, save, cls, path} from '../store.js';
 import {esc, uid, openModal, closeModal, ask, toast, $} from '../util.js';
 import {defaultModule, normGrade, rres, recalcNorm} from '../calc.js';
-import {render, view, setHead, classOpts, modOpts, gTag} from '../ui.js';
+import {render, view, setHead, classOpts, modOpts, gTag, fromTag} from '../ui.js';
 import {A} from './attendance.js';
 
 const N = {classId: null, modId: null, normId: null};
@@ -19,7 +19,7 @@ function renderNorms() {
     const r = rres(c.id, mod.id)[n.id] || {};
     entry = `<div class="list">${c.students.map((st, i) => {
       const x = r[st.id] || {}, val = n.type === 'direct' ? (x.g ?? '') : (x.v ?? '');
-      return `<div class="st static"><span class="nr">${i + 1}</span><span class="nm">${esc(st.name)} <span class="muted small">${st.gender || ''}</span></span>
+      return `<div class="st static"><span class="nr">${i + 1}</span><span class="nm">${esc(st.name)} <span class="muted small">${st.gender || ''}</span>${fromTag(st)}</span>
         <input type="number" class="val" inputmode="decimal" step="any" value="${val}" placeholder="${n.type === 'direct' ? 'notă' : esc(n.unit)}" data-ch="res" data-id="${st.id}">
         <span id="rg_${st.id}" style="width:36px;text-align:center">${gTag(x.g)}</span></div>`;
     }).join('') || '<div class="empty">Clasa nu are elevi.</div>'}</div>`;

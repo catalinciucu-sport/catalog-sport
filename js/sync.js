@@ -77,10 +77,10 @@ function buildViews(c) {
       if (reasonExcused(r.r)) m++; else a++;
       return 'A' + (r.r ? ' – ' + r.r : '');
     });
-    att.push([i + 1, st.name, st.gender || '', ...cells, p, a, m]);
+    att.push([i + 1, st.name + (st.from ? ` (${st.from})` : ''), st.gender || '', ...cells, p, a, m]);
   });
   const grades = [['Nr', 'Nume', ...S.modules.flatMap(md => [md.name + ' % prezență', md.name + ' notă prezență', md.name + ' medie norme', md.name + ' NOTA FINALĂ'])]];
-  c.students.forEach((st, i) => grades.push([i + 1, st.name, ...S.modules.flatMap(md => {
+  c.students.forEach((st, i) => grades.push([i + 1, st.name + (st.from ? ` (${st.from})` : ''), ...S.modules.flatMap(md => {
     const f = finalFor(c, st, md); return [f.a.pct ?? '', f.gp ?? '', f.avgN != null ? +f.avgN.toFixed(2) : '', f.g ?? ''];
   })]));
   return {[sheetName('Prezență ', c)]: att, [sheetName('Note ', c)]: grades};

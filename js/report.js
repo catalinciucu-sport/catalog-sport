@@ -48,7 +48,7 @@ export function reportHTML(c, st) {
     <div class="r-head"><span>${esc(S.school.name || 'Unitatea de învățământ')}</span><span>An școlar ${esc(S.school.year)}</span></div>
     <h1>Fișa de evoluție – Educație fizică și sport</h1>
     <div class="r-sub">Rezultatele testărilor din anul școlar</div>
-    <div class="r-meta"><div><b>Elev</b>${esc(st.name)}</div><div><b>Clasa</b>${esc(c.name)}</div><div><b>Sex</b>${GENDER[st.gender] || '–'}</div><div><b>Profesor</b>${esc(S.school.teacher || '–')}</div></div>
+    <div class="r-meta"><div><b>Elev</b>${esc(st.name)}</div><div><b>Clasa</b>${esc(st.from ? `${st.from} (${c.name})` : c.name)}</div><div><b>Sex</b>${GENDER[st.gender] || '–'}</div><div><b>Profesor</b>${esc(S.school.teacher || '–')}</div></div>
     ${rows.length ? table(rows.filter(r => r.kind === 'm'), 'Date antropometrice') + table(rows.filter(r => r.kind === 'n'), 'Probe de control')
       : '<p style="color:#5a6661">Nu sunt încă testări înregistrate pentru acest elev (tabul Testări).</p>'}
     ${multi.length ? `<h2>Evoluție</h2><div class="charts">${multi.map(chart).join('')}</div>` : ''}

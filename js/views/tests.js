@@ -3,7 +3,7 @@
 import {S, save, cls, path} from '../store.js';
 import {esc, uid, iso, fmtD, num, fmtN, ask, $} from '../util.js';
 import {testItems, testsOf, progress} from '../calc.js';
-import {render, view, setHead, classOpts, noClasses} from '../ui.js';
+import {render, view, setHead, classOpts, noClasses, fromTag} from '../ui.js';
 import {linked} from '../sync.js';
 import {openReport, sharePdf} from '../report.js';
 import {A} from './attendance.js';
@@ -33,7 +33,7 @@ function renderTests() {
   if (!c.students.some(s => s.id === T.studentId)) T.studentId = c.students[0]?.id;
   setHead('Testări', c.name + (t ? ' · ' + fmtD(t.date) : ''));
   const group = (kind, label) => `<optgroup label="${label}">${items.filter(i => i.kind === kind).map(i => `<option value="${i.id}" ${i.id === T.itemId ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</optgroup>`;
-  const rows = t ? c.students.map((st, i) => `<div class="st static"><span class="nr">${i + 1}</span><span class="nm">${esc(st.name)}</span>
+  const rows = t ? c.students.map((st, i) => `<div class="st static"><span class="nr">${i + 1}</span><span class="nm">${esc(st.name)}${fromTag(st)}</span>
       <input type="text" class="val" inputmode="decimal" value="${t.v[st.id] == null ? '' : fmtN(t.v[st.id])}" placeholder="${esc(item.unit)}" data-ch="tVal" data-id="${st.id}">
       <span class="delta" id="td_${st.id}">${deltaHTML(st.id)}</span></div>`).join('') : '';
   view().innerHTML = `<div class="card">

@@ -12,10 +12,11 @@ export function parseSheet(rows, fallback) {
   let hi = -1;
   for (let i = 0; i < Math.min(12, rows.length); i++)
     if (rows[i].some(c => /^(nume|prenume|elev|numele|name|student)/.test(nrm(c)))) { hi = i; break; }
-  let nameCols = [], classCol = -1, gCol = -1;
+  let nameCols = [], classCol = -1, gCol = -1, fromCol = -1;
   if (hi >= 0) {
     const H = rows[hi].map(nrm);
-    H.forEach((h, i) => { if (/^clas/.test(h)) classCol = i; else if (/^(sex|gen)\b/.test(h)) gCol = i; });
+    // „Profil” / „Clasa de proveniență” = clasa elevului dintr-o grupă (se afișează sub nume)
+    H.forEach((h, i) => { if (/^(profil|clasa de provenienta|provenienta)/.test(h)) fromCol = i; else if (/^clas/.test(h)) classCol = i; else if (/^(sex|gen)\b/.test(h)) gCol = i; });
     const full = H.findIndex(h => /nume\s*(si|,|\/)?\s*prenume|numele si prenumele|^elev|^name|^student/.test(h));
     if (full >= 0) nameCols = [full];
     else { const a = H.findIndex(h => /^nume/.test(h)), b = H.findIndex(h => /^prenume/.test(h)); nameCols = [a, b].filter(i => i >= 0); }
@@ -33,7 +34,7 @@ export function parseSheet(rows, fallback) {
     if (!name || /^[\d.,\s]+$/.test(name) || /^total/.test(nrm(name))) continue;
     const cn = (classCol >= 0 && r[classCol]) ? r[classCol] : fallback;
     if (!groups.has(cn)) groups.set(cn, []);
-    groups.get(cn).push({name, gender: gCol >= 0 ? gend(r[gCol]) : ''});
+    groups.get(cn).push({name, gender: gCol >= 0 ? gend(r[gCol]) : '', ...(fromCol >= 0 && r[fromCol] ? {from: r[fromCol]} : {})});
   }
   return [...groups].map(([name, students]) => ({name, students, use: true}));
 }
