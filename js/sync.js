@@ -146,6 +146,21 @@ export async function connect() {
   await run();
 }
 
+/* ---- link de conectare: adresa scriptului + codul secret într-un singur link (…/#conectare=…) ---- */
+export const currentUrl = () => CFG.url || '';
+export function setupLink() {
+  const code = btoa(JSON.stringify({u: CFG.url, t: CFG.token})).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return location.origin + location.pathname + '#conectare=' + code;
+}
+export function parseSetup(text) {
+  const m = String(text || '').match(/#conectare=([\w-]+)/);
+  if (!m) return null;
+  try {
+    const s = m[1].replace(/-/g, '+').replace(/_/g, '/'), d = JSON.parse(atob(s + '='.repeat((4 - s.length % 4) % 4)));
+    return /^https:\/\/script\.google\.com\/.+\/exec$/.test(d.u) && d.t ? {url: d.u, token: d.t} : null;
+  } catch (e) { return null; }
+}
+
 /* ---- conectare / deconectare din Setări ---- */
 export async function link(url, token) {
   await api('ping', null, {url, token});   // aruncă eroare dacă adresa sau codul nu sunt bune
