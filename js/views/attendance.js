@@ -12,9 +12,10 @@ function currentSlot() {
   const now = new Date(), d = now.getDay(), m = now.getHours() * 60 + now.getMinutes();
   const today = S.schedule.filter(e => +e.day === d && cls(e.classId)).sort((a, b) => toMin(a.start) - toMin(b.start));
   const cur = today.find(e => toMin(e.start) - 10 <= m && m <= toMin(e.end) + 5);
-  if (cur) return {e: cur, kind: 'now'};
-  const next = today.find(e => toMin(e.start) > m);
-  return next ? {e: next, kind: 'next'} : null;
+  const next = cur ? null : today.find(e => toMin(e.start) > m);
+  const e = cur || next;
+  // toate clasele / grupele din aceeași oră (ex. două grupe deodată)
+  return e ? {e, kind: cur ? 'now' : 'next', all: today.filter(x => x.start === e.start)} : null;
 }
 function slotsFor(classId, date) {
   const fromSch = S.schedule.filter(e => e.classId === classId && +e.day === wday(date)).map(e => e.start);
@@ -49,8 +50,11 @@ function renderAtt() {
   if (!slots.includes(A.slot)) slots.push(A.slot);
   setHead('Prezență', `${c.name} · ${DAYS[wday(A.date)]} ${fmtD(A.date)}`);
   let banner = '';
-  if (A.info && A.info.e.classId === c.id && A.date === iso(new Date()))
-    banner = `<div class="banner">${A.info.kind === 'now' ? 'Ai oră acum cu' : 'Următoarea oră:'} <b>${esc(c.name)}</b> · ${A.info.e.start}–${A.info.e.end}</div>`;
+  if (A.info && A.info.all.some(x => x.classId === c.id) && A.date === iso(new Date())) {
+    const others = A.info.all.filter(x => x.classId !== c.id && cls(x.classId));
+    banner = `<div class="banner">${A.info.kind === 'now' ? 'Ai oră acum cu' : 'Următoarea oră:'} <b>${esc(c.name)}</b> · ${A.info.e.start}–${A.info.e.end}
+      ${others.length ? `<div class="row2" style="margin-top:6px">În aceeași oră: ${others.map(x => `<button class="btn sm" data-act="attGo" data-id="${x.classId}">${esc(cls(x.classId).name)}</button>`).join('')}</div>` : ''}</div>`;
+  }
   else if (!S.schedule.length)
     banner = `<div class="banner">Completează <b>orarul</b> în Setări și aplicația va deschide automat clasa cu care ai oră.</div>`;
   let pres = 0, abs = 0;
@@ -118,6 +122,7 @@ export default {
     allIn() { const s = getSess(true); cls(A.classId).students.forEach(st => s[st.id] = {p: true}); save(); render(true); toast('Toți elevii marcați prezenți'); },
     delSess() { ask('Ștergi prezența înregistrată la această oră?', () => { delete S.sessions[A.classId][sessKey()]; save(); render(true); }, 'Șterge ora'); },
     hist: histModal,
+    attGo(el) { A.classId = el.dataset.id; S.ui.lastClass = el.dataset.id; persistLocal(); render(); window.scrollTo(0, 0); },
     openSess(el) { const [d, s] = el.dataset.k.split('|'); Object.assign(A, {date: d, slot: s, info: null}); closeModal(); render(); },
     demo() {
       const c = {id: uid(), name: 'Clasa exemplu', students: ['Avram Ioana|F', 'Barbu Andrei|B', 'Constantin Maria|F', 'Dinu Alexandru|B', 'Enache Elena|F', 'Florea Mihai|B', 'Georgescu Ana|F', 'Ilie Radu|B']

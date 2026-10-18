@@ -3,7 +3,7 @@ import {S, save, setState, defaults, normalize} from '../store.js';
 import {esc, uid, iso, toMin, DAYS, ask, toast, openModal, closeModal, $} from '../util.js';
 import {AUTO_RULES} from '../calc.js';
 import {render, view, setHead, classOpts} from '../ui.js';
-import {linked, link, unlink, connect, setupLink, parseSetup} from '../sync.js';
+import {linked, link, unlink, connect, setupLink, parseSetup, peerLinked, setPeer, unsetPeer, mergeWithPeer} from '../sync.js';
 import {saveBlob} from '../files.js';
 import {initAtt} from './attendance.js';
 
@@ -22,6 +22,13 @@ function renderSet() {
       <label class="f">Linkul de conectare sau adresa aplicației web (se termină în /exec)<input type="text" id="gUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></label>
       <label class="f" style="margin-top:8px">Cod secret<input type="text" id="gTok" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <button class="btn pri" style="margin-top:10px" data-act="gOn">Conectează</button>`}</div>
+
+  ${linked() ? `<div class="card"><h2>Grupe comune cu un coleg</h2>
+    ${peerLinked() ? `<div class="small muted" style="margin-bottom:8px">Grupele care sunt în ambele tabele se completează reciproc: ce a bifat colegul apare la tine și invers. Ștergerile nu se transmit.</div>
+      <div class="row2"><button class="btn pri" data-act="peerMerge">Completează grupele acum</button><button class="btn bad" data-act="peerOff">Elimină colegul</button></div>`
+    : `<div class="small muted" style="margin-bottom:8px">Dacă lucrezi cu aceleași grupe ca un coleg care are tabelul lui, lipește aici linkul lui de conectare. Linkul rămâne doar pe acest dispozitiv.</div>
+      <label class="f">Linkul de conectare al colegului<input type="text" id="peerLink" autocomplete="off" placeholder="https://…#conectare=…"></label>
+      <button class="btn" style="margin-top:10px" data-act="peerOn">Salvează</button>`}</div>` : ''}
 
   <div class="card"><h2>Școala (apare pe fișele elevilor)</h2>
     <div class="row2">
@@ -123,6 +130,19 @@ export default {
     },
     gOff() { ask('Deconectezi acest dispozitiv de la Google? Datele din tabel rămân neatinse.', () => { unlink(); render(); }, 'Deconectează'); },
     async gSync() { await connect(); render(true); },
+    peerOn() {
+      try { setPeer($('#peerLink').value); render(true); toast('Linkul colegului a fost salvat'); }
+      catch (e) { toast(e.code === 'same_table' ? 'Acesta e linkul tabelului tău, nu al colegului.' : 'Linkul nu e un link de conectare valid.'); }
+    },
+    peerOff() { ask('Elimini legătura cu tabelul colegului? Datele rămân neatinse în ambele tabele.', () => { unsetPeer(); render(true); }, 'Elimină'); },
+    async peerMerge(el) {
+      el.disabled = true; el.textContent = 'Se completează…';
+      try {
+        const names = await mergeWithPeer();
+        toast(names.length ? `Completat: ${names.join(', ')}` : 'Nu am găsit grupe comune în cele două tabele.');
+      } catch (e) { toast(e.code === 'cod_gresit' ? 'Linkul colegului nu mai e valabil.' : 'Nu am putut ajunge la tabelul colegului. Verifică internetul.'); }
+      render(true);
+    },
     async gLink() {
       const l = setupLink();
       try { await navigator.clipboard.writeText(l); toast('Linkul de conectare a fost copiat'); }
