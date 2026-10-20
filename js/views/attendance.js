@@ -1,20 +1,20 @@
-// Ecranul „Prezență”: clasa cu care ai oră, listă cu bifă, motive de absență, istoricul orelor.
-import {S, save, cls, path, persistLocal} from '../store.js';
+// Ecranul „Prezență”: clasa deschisă din Home, elevii prezenți din oficiu, debifezi absenții și alegi motivul.
+import {S, save, cls, path, persistLocal, beginDraft} from '../store.js';
 import {esc, iso, fmtD, toMin, wday, nrm, DAYS, ICON, uid, openModal, closeModal, ask, toast, $} from '../util.js';
-import {moduleFor, attStats} from '../calc.js';
-import {render, view, setHead, classOpts, noClasses, fromTag} from '../ui.js';
+import {moduleFor} from '../calc.js';
+import {render, view, setHead, noClasses, fromTag, reasonColor} from '../ui.js';
 import {linked} from '../sync.js';
 
 // starea ecranului (clasa, data și ora afișate)
 export const A = {classId: null, date: iso(new Date()), slot: 'ora', info: null};
 
-function currentSlot() {
+// ora din orar de acum (sau următoarea de azi), cu toate clasele / grupele din aceeași oră
+export function currentSlot() {
   const now = new Date(), d = now.getDay(), m = now.getHours() * 60 + now.getMinutes();
   const today = S.schedule.filter(e => +e.day === d && cls(e.classId)).sort((a, b) => toMin(a.start) - toMin(b.start));
   const cur = today.find(e => toMin(e.start) - 10 <= m && m <= toMin(e.end) + 5);
   const next = cur ? null : today.find(e => toMin(e.start) > m);
   const e = cur || next;
-  // toate clasele / grupele din aceeași oră (ex. două grupe deodată)
   return e ? {e, kind: cur ? 'now' : 'next', all: today.filter(x => x.start === e.start)} : null;
 }
 function slotsFor(classId, date) {
@@ -30,16 +30,37 @@ export function initAtt() {
   const c = cls(S.ui.lastClass) || S.classes[0];
   Object.assign(A, {classId: c ? c.id : null, date: today, slot: c ? slotsFor(c.id, today)[0] : 'ora', info: null});
 }
+// intrarea într-o clasă din Home: azi, la ora din orar (dacă e cazul); de aici modificările așteaptă „Salvează”
+export function openClass(id) {
+  const today = iso(new Date()), cs = currentSlot(), hit = cs && cs.all.find(x => x.classId === id);
+  Object.assign(A, {classId: id, date: today, slot: hit ? hit.start : slotsFor(id, today)[0], info: hit ? cs : null});
+  S.ui.lastClass = id; S.ui.tab = 'att'; persistLocal(); beginDraft();
+}
 const sessKey = () => A.date + '|' + A.slot;
+// ora se creează abia la prima modificare (sau la „Salvează”), cu toți elevii prezenți
 function getSess(create) {
   if (!A.classId) return null;
   const all = S.sessions[A.classId];
   let s = all && all[sessKey()];
   if (!s && create) {
     s = path('sessions', A.classId)[sessKey()] = {};
-    cls(A.classId).students.forEach(st => s[st.id] = {p: false});
+    cls(A.classId).students.forEach(st => s[st.id] = {p: true});
   }
   return s || null;
+}
+// „Salvează” pe ecranul Prezență înregistrează ora și când toți sunt prezenți; întoarce true dacă a creat-o acum
+export function ensureSess() { if (!cls(A.classId) || getSess(false)) return false; getSess(true); return true; }
+
+// prezențe / absențe ale elevului, în modulul dat sau (fără modul) în tot anul
+function counts(cid, sid, mod) {
+  let p = 0, a = 0;
+  for (const [k, s] of Object.entries(S.sessions[cid] || {})) {
+    const d = k.split('|')[0];
+    if (mod && (d < mod.start || d > mod.end)) continue;
+    const r = s[sid]; if (!r) continue;
+    if (r.p) p++; else a++;
+  }
+  return {p, a};
 }
 
 function renderAtt() {
@@ -48,44 +69,45 @@ function renderAtt() {
   const c = cls(A.classId), sess = getSess(false), mod = moduleFor(A.date);
   const slots = slotsFor(c.id, A.date);
   if (!slots.includes(A.slot)) slots.push(A.slot);
-  setHead('Prezență', `${c.name} · ${DAYS[wday(A.date)]} ${fmtD(A.date)}`);
+  setHead(c.name, `Prezență · ${DAYS[wday(A.date)]} ${fmtD(A.date)}`);
   let banner = '';
   if (A.info && A.info.all.some(x => x.classId === c.id) && A.date === iso(new Date())) {
     const others = A.info.all.filter(x => x.classId !== c.id && cls(x.classId));
     banner = `<div class="banner">${A.info.kind === 'now' ? 'Ai oră acum cu' : 'Următoarea oră:'} <b>${esc(c.name)}</b> · ${A.info.e.start}–${A.info.e.end}
       ${others.length ? `<div class="row2" style="margin-top:6px">În aceeași oră: ${others.map(x => `<button class="btn sm" data-act="attGo" data-id="${x.classId}">${esc(cls(x.classId).name)}</button>`).join('')}</div>` : ''}</div>`;
   }
-  else if (!S.schedule.length)
-    banner = `<div class="banner">Completează <b>orarul</b> în Setări și aplicația va deschide automat clasa cu care ai oră.</div>`;
+  const byYear = S.ui.cnt === 'an' || !mod;
   let pres = 0, abs = 0;
-  if (sess) c.students.forEach(st => { const r = sess[st.id]; if (r) r.p ? pres++ : abs++; });
   const rows = c.students.map((st, i) => {
-    const r = sess && sess[st.id], on = r && r.p, isAbs = r && !r.p;
-    const pct = mod ? attStats(c.id, st.id, mod).pct : null;
+    const r = sess ? sess[st.id] : {p: true}, on = r && r.p, isAbs = r && !r.p;
+    if (on) pres++; else if (isAbs) abs++;
     const why = isAbs ? `<button class="why ${r.r ? 'set' : ''}" data-act="why" data-id="${st.id}">${esc(r.r || 'Motiv?')}</button>` : '';
-    return `<div class="st ${on ? 'on' : ''} ${isAbs ? 'abs' : ''}" data-act="tog" data-id="${st.id}" role="checkbox" aria-checked="${!!on}">
+    const n = counts(c.id, st.id, byYear ? null : mod);
+    return `<div class="st ${on ? 'on' : ''} ${isAbs ? 'abs' : ''}" ${isAbs ? `style="--rc:${reasonColor(r.r)}"` : ''} data-act="tog" data-id="${st.id}" role="checkbox" aria-checked="${!!on}">
       <span class="chk">${ICON.check}</span><span class="nr">${i + 1}</span>
-      <span class="nm">${esc(st.name)}${fromTag(st)}</span>${why}${pct != null ? `<span class="pct">${pct}%</span>` : ''}</div>`;
+      <span class="nm">${esc(st.name)}${fromTag(st)}</span>${why}
+      <span class="cnt" title="prezențe / absențe ${byYear ? 'în tot anul' : 'în ' + esc(mod.name)}"><b class="cp">✓${n.p}</b><b class="ca">✗${n.a}</b></span></div>`;
   }).join('');
   view().innerHTML = `${banner}
   <div class="card">
     <div class="row2">
-      <label class="f" style="flex-basis:100%">Clasa<select data-ch="attClass">${classOpts(c.id)}</select></label>
       <label class="f">Data<input type="date" value="${A.date}" data-ch="attDate"></label>
       <label class="f" style="max-width:110px;min-width:90px">Ora<select data-ch="attSlot">${slots.map(s => `<option ${s === A.slot ? 'selected' : ''} value="${s}">${s === 'ora' ? '—' : s}</option>`).join('')}</select></label>
     </div>
     <div class="row2" style="margin-top:10px">
-      <button class="btn pri" data-act="allIn">Toți prezenți</button>
-      <button class="btn" data-act="hist">Istoric</button>
-      ${sess ? '<button class="btn bad right" data-act="delSess">Șterge</button>' : ''}
+      <span class="small muted">Prezențe / absențe:</span>
+      <div class="seg sm">${mod ? `<button data-act="cntScope" data-v="mod" class="${byYear ? '' : 'on'}">${esc(mod.name)}</button>` : ''}<button data-act="cntScope" data-v="an" class="${byYear ? 'on' : ''}">Tot anul</button></div>
+      <button class="btn sm right" data-act="hist">Istoric</button>
+      ${sess ? '<button class="btn sm bad" data-act="delSess">Șterge ora</button>' : ''}
     </div>
   </div>
-  <div class="stats">
+  <div class="stats sticky">
     <span class="pill">${c.students.length} elevi</span>
-    ${sess ? `<span class="pill g">${pres} prezenți</span><span class="pill b">${abs} absenți</span>` : '<span class="pill">Ora nu a fost încă înregistrată – bifează elevii prezenți</span>'}
+    <span class="pill g">${pres} prezenți</span><span class="pill b">${abs} absenți</span>
     <span class="pill">${mod ? esc(mod.name) : 'În afara modulelor'}</span>
+    ${sess ? '' : '<span class="pill w">ora nu e încă salvată</span>'}
   </div>
-  ${c.students.length ? `<div class="list">${rows}</div>` : '<div class="card empty">Clasa nu are elevi. Adaugă-i din tabul Clase.</div>'}`;
+  ${c.students.length ? `<div class="list">${rows}</div>` : '<div class="card empty">Clasa nu are elevi. Adaugă-i din Home → Clase.</div>'}`;
 }
 
 function whyModal(sid) {
@@ -93,10 +115,10 @@ function whyModal(sid) {
   const cur = getSess(false)?.[sid]?.r || '';
   const known = S.settings.reasons.some(r => nrm(r.t) === nrm(cur));
   openModal(`<h3>Motivul absenței</h3><div class="muted small">${esc(st.name)}</div>
-    <div class="chips">${S.settings.reasons.map(r => `<button class="chip ${nrm(r.t) === nrm(cur) ? 'on' : ''}" data-act="setWhy" data-id="${sid}" data-r="${esc(r.t)}">${esc(r.t)}${r.exc ? ' ✓' : ''}</button>`).join('')}</div>
+    <div class="chips">${S.settings.reasons.map(r => `<button class="chip rc ${nrm(r.t) === nrm(cur) ? 'on' : ''}" style="--rc:${reasonColor(r.t)}" data-act="setWhy" data-id="${sid}" data-r="${esc(r.t)}">${esc(r.t)}${r.exc ? ' ✓' : ''}</button>`).join('')}</div>
     <label class="f">Alt motiv / observație<input type="text" id="whyTxt" value="${known ? '' : esc(cur)}" placeholder="ex: entorsă gleznă, adeverință până la 30.10"></label>
     <div class="small muted" style="margin:8px 0">✓ = motiv care nu scade procentul de prezență (ora nu se ia în calcul).</div>
-    <div class="row2"><button class="btn pri" data-act="setWhyTxt" data-id="${sid}">Salvează</button><button class="btn" data-act="setWhy" data-id="${sid}" data-r="">Fără motiv</button><button class="btn right" data-act="close">Închide</button></div>`);
+    <div class="row2"><button class="btn pri" data-act="setWhyTxt" data-id="${sid}">Salvează motivul</button><button class="btn" data-act="setWhy" data-id="${sid}" data-r="">Fără motiv</button><button class="btn right" data-act="close">Închide</button></div>`);
 }
 function histModal() {
   const c = cls(A.classId);
@@ -111,15 +133,17 @@ function histModal() {
 export default {
   key: 'att', title: 'Prezență', render: renderAtt,
   actions: {
+    // atingerea unui elev: prezent → absent (și se cere motivul), absent → prezent
     tog(el) {
-      const s = getSess(true), id = el.dataset.id;
-      s[id] = s[id] || {p: false}; s[id].p = !s[id].p; if (s[id].p) delete s[id].r;
-      S.ui.lastClass = A.classId; save(); render(true);
+      const s = getSess(true), id = el.dataset.id, wasIn = !s[id] || s[id].p;
+      s[id] = wasIn ? {p: false} : {p: true};
+      save(); render(true);
+      if (wasIn) whyModal(id);
     },
     why(el, e) { e.stopPropagation(); whyModal(el.dataset.id); },
     setWhy(el) { const s = getSess(true); s[el.dataset.id] = el.dataset.r ? {p: false, r: el.dataset.r} : {p: false}; save(); closeModal(); render(true); },
     setWhyTxt(el) { const t = $('#whyTxt').value.trim(), s = getSess(true); s[el.dataset.id] = t ? {p: false, r: t} : {p: false}; save(); closeModal(); render(true); },
-    allIn() { const s = getSess(true); cls(A.classId).students.forEach(st => s[st.id] = {p: true}); save(); render(true); toast('Toți elevii marcați prezenți'); },
+    cntScope(el) { S.ui.cnt = el.dataset.v; persistLocal(); render(true); },
     delSess() { ask('Ștergi prezența înregistrată la această oră?', () => { delete S.sessions[A.classId][sessKey()]; save(); render(true); }, 'Șterge ora'); },
     hist: histModal,
     attGo(el) { A.classId = el.dataset.id; S.ui.lastClass = el.dataset.id; persistLocal(); render(); window.scrollTo(0, 0); },
@@ -127,12 +151,10 @@ export default {
     demo() {
       const c = {id: uid(), name: 'Clasa exemplu', schoolId: S.schools[0].id, students: ['Avram Ioana|F', 'Barbu Andrei|B', 'Constantin Maria|F', 'Dinu Alexandru|B', 'Enache Elena|F', 'Florea Mihai|B', 'Georgescu Ana|F', 'Ilie Radu|B']
         .map(x => { const [name, gender] = x.split('|'); return {id: uid(), name, gender}; })};
-      S.classes.push(c); Object.assign(A, {classId: c.id, slot: slotsFor(c.id, A.date)[0]});
-      S.ui.tab = 'att'; save(); render(); toast('Am adăugat o clasă exemplu – o poți șterge din tabul Clase');
+      S.classes.push(c); save(); render(); toast('Am adăugat o clasă exemplu – o poți șterge din Clase');
     },
   },
   changes: {
-    attClass(el) { Object.assign(A, {classId: el.value, info: null, slot: slotsFor(el.value, A.date)[0]}); S.ui.lastClass = el.value; persistLocal(); render(); },
     attDate(el) { if (!el.value) return; Object.assign(A, {date: el.value, info: null, slot: slotsFor(A.classId, el.value)[0]}); render(); },
     attSlot(el) { A.slot = el.value; render(); },
   },

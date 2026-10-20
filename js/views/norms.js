@@ -14,7 +14,7 @@ const filled = a => a && a.some(x => x !== '' && x != null);
 
 function renderNorms() {
   setHead('Norme de control');
-  if (!cls(N.classId)) N.classId = cls(A.classId) ? A.classId : S.classes[0]?.id;
+  N.classId = cls(A.classId) ? A.classId : S.classes[0]?.id;   // clasa deschisă din Home
   if (!S.modules.find(m => m.id === N.modId)) N.modId = defaultModule()?.id;
   if (!normOf()) N.normId = S.norms[0]?.id;
   const c = cls(N.classId), mod = S.modules.find(m => m.id === N.modId), n = normOf(), lvl = levelOf(c);
@@ -31,8 +31,7 @@ function renderNorms() {
   const lvUsed = lvl != null && n?.lv?.[lvl] && (filled(n.lv[lvl].B) || filled(n.lv[lvl].F));
   view().innerHTML = `<div class="card"><h2>Introducere rezultate</h2>
     ${!S.classes.length ? '<div class="muted">Adaugă mai întâi o clasă.</div>' : !S.norms.length ? '<div class="muted">Adaugă mai întâi o normă (mai jos).</div>' : `
-    <div class="row2"><label class="f">Clasa<select data-ch="nClass">${classOpts(c?.id)}</select></label>
-    <label class="f">Modul<select data-ch="nMod">${modOpts(mod?.id)}</select></label></div>
+    <div class="row2"><label class="f">Modul<select data-ch="nMod">${modOpts(mod?.id)}</select></label></div>
     <label class="f" style="margin-top:8px">Norma<select data-ch="nNorm">${S.norms.map(x => `<option value="${x.id}" ${x.id === n?.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
     <div class="small muted" style="margin-top:8px">${n ? (n.type === 'direct' ? 'Introdu direct nota (1–10).' : `Introdu rezultatul în ${esc(n.unit)} – nota se calculează automat după ${lvUsed ? `baremul pentru clasa a ${LEVELS[lvl]}-a` : 'baremul general'} (${n.type === 'high' ? 'mai mare = mai bine' : 'mai mic = mai bine'}). Lasă gol pentru elevii care nu au susținut proba.`) : ''}</div>`}
   </div>${entry}

@@ -24,7 +24,7 @@ function deltaHTML(sid) {
 function renderTests() {
   setHead('Testări');
   if (!S.classes.length) { view().innerHTML = noClasses(linked()); return; }
-  if (!cls(T.classId)) T.classId = cls(A.classId) ? A.classId : S.classes[0].id;
+  T.classId = cls(A.classId) ? A.classId : S.classes[0].id;   // clasa deschisă din Home
   const items = testItems();
   if (!itemOf()) T.itemId = items[0]?.id;
   const c = cls(T.classId), item = itemOf(), tests = list();
@@ -38,7 +38,6 @@ function renderTests() {
       <span class="delta" id="td_${st.id}">${deltaHTML(st.id)}</span></div>`).join('') : '';
   view().innerHTML = `<div class="card">
     <div class="row2">
-      <label class="f">Clasa<select data-ch="tClass">${classOpts(c.id)}</select></label>
       <label class="f">Ce măsori<select data-ch="tItem">${group('m', 'Măsurători antropometrice')}${group('n', 'Probe de control')}</select></label>
     </div>
     ${item ? `<div class="row2" style="margin-top:8px;align-items:flex-end">

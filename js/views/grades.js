@@ -13,7 +13,7 @@ const G = {classId: null, modId: null};
 function renderGrades() {
   setHead('Note');
   if (!S.classes.length) { view().innerHTML = noClasses(linked()); return; }
-  if (!cls(G.classId)) G.classId = cls(A.classId) ? A.classId : S.classes[0].id;
+  G.classId = cls(A.classId) ? A.classId : S.classes[0].id;   // clasa deschisă din Home
   if (!S.modules.find(m => m.id === G.modId)) G.modId = defaultModule()?.id;
   const c = cls(G.classId), mod = S.modules.find(m => m.id === G.modId);
   if (!mod) { view().innerHTML = '<div class="card empty">Definește modulele în Setări.</div>'; return; }
@@ -30,7 +30,6 @@ function renderGrades() {
       <td><button class="btn sm" data-act="catEdit" data-id="${st.id}" title="Alege notele pentru catalog">${catalogFor(c, st, mod).map(x => gTag(x.g)).join(' ') || '<span class="muted">–</span>'} ✎</button></td></tr>`;
   }).join('');
   view().innerHTML = `<div class="card"><div class="row2">
-      <label class="f">Clasa<select data-ch="gClass">${classOpts(c.id)}</select></label>
       <label class="f">Modul<select data-ch="gMod">${modOpts(mod.id)}</select></label></div>
     <div class="small muted" style="margin-top:8px">${sessionsIn(c.id, mod).length} ore înregistrate în modul. Automat: membrii echipei școlii cu competiții în acest modul primesc 10; ceilalți primesc ${AUTO_RULES[S.settings.autoRule || 'max']}. Absențele motivate (ex. boală) nu scad procentul. Poți alege alt criteriu pentru fiecare elev, în coloana Sursa.</div>
     <div class="small muted" style="margin-top:6px">În coloana <b>În catalog</b> alegi ce note se trec în catalog (una sau mai multe): apasă pe note.</div>

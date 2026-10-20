@@ -11,12 +11,12 @@ let impSchool = null;   // școala în care se importă
 
 function renderClasses() {
   setHead('Clase', `${S.classes.length} clase`);
-  view().innerHTML = `<div class="card"><h2>Import</h2>
-    <div class="small muted" style="margin-bottom:10px">Din Excel (.xlsx/.xls) sau CSV – fiecare foaie devine o clasă, sau se grupează după coloana „Clasa”. Coloanele „Nume”, „Prenume”, „Sex” sunt recunoscute automat. Din aplicația de catalog: exportă lista în Excel/CSV sau copiaz-o și folosește „Lipește listă”.</div>
-    <div class="row2"><button class="btn pri" data-act="impFile">Importă fișier Excel / CSV</button><button class="btn" data-act="impPaste">Lipește listă</button><button class="btn" data-act="clsNew">+ Clasă nouă</button></div></div>
-  ${S.schools.map(sc => { const cs = S.classes.filter(c => c.schoolId === sc.id); return !cs.length ? '' : `
+  view().innerHTML = `${S.schools.map(sc => { const cs = S.classes.filter(c => c.schoolId === sc.id); return !cs.length ? '' : `
     ${S.schools.length > 1 ? `<h2 style="font:700 16px var(--f-display);margin:14px 4px 6px">${esc(sc.name || 'Școală fără nume')}</h2>` : ''}
-    <div class="list" style="margin-bottom:10px">${cs.map(c => { const l = levelOf(c); return `<div class="st" data-act="clsEdit" data-id="${c.id}"><span class="nm"><b>${esc(c.name)}</b>${l != null ? `<small class="from">clasa ${LEVELS[l] === 'Pregătitoare' ? 'pregătitoare' : 'a ' + LEVELS[l] + '-a'}</small>` : ''}</span><span class="muted small">${c.students.length} elevi</span></div>`; }).join('')}</div>`; }).join('')}`;
+    <div class="list" style="margin-bottom:10px">${cs.map(c => { const l = levelOf(c); return `<div class="st" data-act="clsEdit" data-id="${c.id}"><span class="nm"><b>${esc(c.name)}</b>${l != null ? `<small class="from">clasa ${LEVELS[l] === 'Pregătitoare' ? 'pregătitoare' : 'a ' + LEVELS[l] + '-a'}</small>` : ''}</span><span class="muted small">${c.students.length} elevi</span></div>`; }).join('')}</div>`; }).join('')}
+  <div class="card" style="margin-top:14px"><h2>Import</h2>
+    <div class="small muted" style="margin-bottom:10px">Din Excel (.xlsx/.xls) sau CSV – fiecare foaie devine o clasă, sau se grupează după coloana „Clasa”. Coloanele „Nume”, „Prenume”, „Sex” sunt recunoscute automat. Din aplicația de catalog: exportă lista în Excel/CSV sau copiaz-o și folosește „Lipește listă”.</div>
+    <div class="row2"><button class="btn pri" data-act="impFile">Importă fișier Excel / CSV</button><button class="btn" data-act="impPaste">Lipește listă</button><button class="btn" data-act="clsNew">+ Clasă nouă</button></div></div>`;
 }
 
 const levelOpts = c => `<option value="">Automat${detectLevel(c.name) != null ? ' (' + LEVELS[detectLevel(c.name)] + ')' : ''}</option>${LEVELS.map((t, i) => `<option value="${i}" ${c.level != null && c.level !== '' && +c.level === i ? 'selected' : ''}>${t}</option>`).join('')}`;
@@ -24,7 +24,8 @@ const levelOpts = c => `<option value="">Automat${detectLevel(c.name) != null ? 
 const isGroup = c => !!c.group || c.students.some(s => s.from);
 function clsModal(id) {
   const c = cls(id), grp = isGroup(c);
-  openModal(`<h3>Clasa</h3>
+  const tTags = st => { const ts = S.teams.filter(t => t.members.includes(st.id)); return ts.length ? `<small class="from" style="color:var(--accent)">${esc(ts.map(t => t.name).join(', '))}</small>` : ''; };
+  openModal(`<div class="sheet-top"><h3 class="grow">Clasa</h3><button class="btn pri" data-act="clsSave" data-id="${c.id}">Gata</button></div>
     <label class="f">Denumire<input type="text" id="cName" value="${esc(c.name)}"></label>
     <div class="row2" style="margin-top:8px">
       ${S.schools.length > 1 ? `<label class="f">Școala<select data-ch="cSchool" data-id="${c.id}">${S.schools.map(s => `<option value="${s.id}" ${s.id === c.schoolId ? 'selected' : ''}>${esc(s.name || 'Școală fără nume')}</option>`).join('')}</select></label>` : ''}
@@ -32,16 +33,30 @@ function clsModal(id) {
     </div>
     <label class="row2 small" style="margin-top:8px"><input type="checkbox" style="width:20px;height:20px" data-ch="cGroup" data-id="${c.id}" ${grp ? 'checked' : ''}>
       <span class="grow">Grupă cu elevi din mai multe clase (la fiecare elev se trece clasa lui)</span></label>
-    <div class="row2" style="margin:12px 0 4px"><b class="grow">Elevi (${c.students.length})</b><button class="btn sm" data-act="stSort" data-id="${c.id}">Sortează A–Z</button></div>
+    <div class="row2" style="margin:12px 0 4px"><b class="grow">Elevi (${c.students.length})</b><button class="btn sm" data-act="ctOpen" data-id="${c.id}">Echipele școlii</button><button class="btn sm" data-act="stSort" data-id="${c.id}">Sortează A–Z</button></div>
     <div>${c.students.map((st, i) => `<div class="item"><span class="nr">${i + 1}</span>
-      <input type="text" class="grow" value="${esc(st.name)}" data-ch="stName" data-c="${c.id}" data-id="${st.id}">
+      <span class="grow" style="min-width:0"><input type="text" value="${esc(st.name)}" data-ch="stName" data-c="${c.id}" data-id="${st.id}">${tTags(st)}</span>
       ${grp ? `<input type="text" style="width:74px" value="${esc(st.from || '')}" placeholder="clasa" title="Clasa elevului" data-ch="stFrom" data-c="${c.id}" data-id="${st.id}">` : ''}
       <select style="width:72px" data-ch="stG" data-c="${c.id}" data-id="${st.id}"><option value="">–</option><option ${st.gender === 'B' ? 'selected' : ''}>B</option><option ${st.gender === 'F' ? 'selected' : ''}>F</option></select>
       <button class="btn sm bad" data-act="stDel" data-c="${c.id}" data-id="${st.id}" aria-label="Șterge elevul">✕</button></div>`).join('')}</div>
     <div class="row2" style="margin-top:8px"><input type="text" class="grow" id="newSt" placeholder="Nume elev nou"><select id="newG" style="width:72px"><option value="">–</option><option>B</option><option>F</option></select><button class="btn sm" data-act="stAdd" data-id="${c.id}">Adaugă</button></div>
-    <div class="row2" style="margin-top:16px"><button class="btn pri" data-act="clsSave" data-id="${c.id}">Gata</button><button class="btn bad" data-act="clsDel" data-id="${c.id}">Șterge clasa</button></div>`);
+    <div class="row2" style="margin-top:16px"><button class="btn bad" data-act="clsDel" data-id="${c.id}">Șterge clasa</button></div>`);
 }
 const keepName = c => { const v = $('#cName')?.value.trim(); if (v) c.name = v; };
+
+// echipele școlii pentru elevii clasei: alegi echipa, bifezi elevii
+let CT = {teamId: null};
+function teamsModal(cid) {
+  const c = cls(cid);
+  if (!S.teams.some(t => t.id === CT.teamId)) CT.teamId = S.teams[0]?.id;
+  const t = S.teams.find(x => x.id === CT.teamId);
+  openModal(`<div class="sheet-top"><h3 class="grow">Echipele școlii – ${esc(c.name)}</h3><button class="btn pri" data-act="ctBack" data-id="${c.id}">Gata</button></div>
+    ${t ? `<div class="small muted">Alege echipa, apoi bifează elevii clasei care fac parte din ea.</div>
+    <div class="chips">${S.teams.map(x => { const n = c.students.filter(s => x.members.includes(s.id)).length; return `<button class="chip ${x.id === t.id ? 'on' : ''}" data-act="ctTeam" data-id="${c.id}" data-t="${x.id}">${esc(x.name)}${n ? ` (${n})` : ''}</button>`; }).join('')}</div>
+    <div>${c.students.map(s => `<label class="item" style="cursor:pointer"><input type="checkbox" style="width:22px;height:22px" data-ch="ctMember" data-id="${c.id}" data-s="${s.id}" ${t.members.includes(s.id) ? 'checked' : ''}><span class="grow">${esc(s.name)}</span></label>`).join('') || '<div class="muted">Clasa nu are elevi.</div>'}</div>
+    <div class="small muted" style="margin-top:8px">Modulele cu competiții (nota 10 automat) și echipele noi se stabilesc în Setări → Echipele școlii.</div>`
+    : '<div class="muted">Nu ai nicio echipă. Adaug-o din Setări → Echipele școlii.</div>'}`);
+}
 
 function previewImport() {
   if (!PENDING.length) { toast('Nu am găsit elevi în fișier.'); return; }
@@ -107,8 +122,16 @@ export default {
       }, 'Șterge elevul');
     },
     stSort(el) { const c = cls(el.dataset.id); keepName(c); sortStudents(c); save(); clsModal(c.id); },
+    ctOpen(el) { keepName(cls(el.dataset.id)); save(); teamsModal(el.dataset.id); },
+    ctTeam(el) { CT.teamId = el.dataset.t; teamsModal(el.dataset.id); },
+    ctBack(el) { clsModal(el.dataset.id); },
   },
   changes: {
+    ctMember(el) {
+      const t = S.teams.find(x => x.id === CT.teamId), sid = el.dataset.s;
+      t.members = el.checked ? [...new Set([...t.members, sid])] : t.members.filter(m => m !== sid);
+      save(); teamsModal(el.dataset.id);
+    },
     stName(el) { const st = cls(el.dataset.c).students.find(s => s.id === el.dataset.id); if (el.value.trim()) st.name = el.value.trim(); save(); },
     cGroup(el) {
       const c = cls(el.dataset.id); keepName(c);
