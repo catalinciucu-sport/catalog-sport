@@ -1,7 +1,7 @@
 // Piese de interfață comune ecranelor: titlul de sus, liste de selecție, eticheta de notă.
 // render() redesenează ecranul curent (îl leagă main.js).
 import {S} from './store.js';
-import {esc, fmtD, $} from './util.js';
+import {esc, fmtD, nrm, $} from './util.js';
 
 let renderFn = () => {};
 export const setRenderer = fn => { renderFn = fn; };
@@ -21,6 +21,16 @@ export const modOpts = sel => S.modules.map(m => `<option value="${m.id}" ${m.id
 // clasa de proveniență, sub nume, pentru elevii din grupe (student.from, ex. „9COM”)
 export const fromTag = st => st.from ? `<small class="from">${esc(st.from)}</small>` : '';
 export const nameWithClass = st => st.name + (st.from ? ` (${st.from})` : '');
+// culoarea fiecărui motiv de absență; motivele adăugate în Setări primesc culori din EXTRA, cele scrise de mână gri
+const RC = {'absent': '#d6336c', 'fara echipament': '#e8590c', 'scutit medical': '#1c7ed6', 'invoit / motivat': '#7048e8',
+  'accidentat': '#e03131', 'concurs / olimpiada': '#0c8599', 'inapt fiziologic': '#9c6644'};
+const EXTRA = ['#2f9e44', '#5f3dc4', '#1098ad', '#f08c00', '#a61e4d'];
+export function reasonColor(t) {
+  if (!t) return RC.absent;
+  const k = nrm(t); if (RC[k]) return RC[k];
+  const i = S.settings.reasons.findIndex(r => nrm(r.t) === k);
+  return i < 0 ? '#868e96' : EXTRA[i % EXTRA.length];
+}
 export const gTag = g => g == null ? '<span class="muted">–</span>' : `<span class="g g${g}">${g}</span>`;
 
 export const noClasses = linked => `<div class="card empty"><h2>Lista de prezență apare aici</h2>

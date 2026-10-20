@@ -10,6 +10,11 @@ export const CLASS_KEYS = ['sessions', 'results', 'choice', 'tests', 'obs', 'cat
 // niveluri de studiu: 0 = clasa pregătitoare, 1–12 = I–XII
 export const LEVELS = ['Pregătitoare', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
+// echipele școlii adăugate automat; id-uri fixe, ca să nu apară dublate pe alt dispozitiv
+const DEFAULT_TEAMS = [['tmSah', 'Șah'], ['tmTenis', 'Tenis de masă'], ['tmFotB', 'Fotbal băieți'], ['tmFotF', 'Fotbal fete'],
+  ['tmHandF', 'Handbal fete'], ['tmBaschB', 'Baschet băieți'], ['tmBaschF', 'Baschet fete']].map(([id, name]) => ({id, name}));
+const nrmName = s => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 export function defaults() {
   return {
     school: {year: '2026–2027', teacher: ''},
@@ -42,7 +47,7 @@ export function defaults() {
       {id: 'anv', name: 'Anvergura brațelor', unit: 'cm', better: 'none'},
     ],
     // echipele școlii: membrii primesc automat 10 în modulele cu competiții
-    teams: [],      // [{id, name, members: [studentId], modules: [moduleId]}]
+    teams: DEFAULT_TEAMS.map(t => ({...t, members: [], modules: []})),   // [{id, name, members: [studentId], modules: [moduleId]}]
     sessions: {},   // {classId: {"YYYY-MM-DD|HH:MM": {studentId: {p: bool, r: 'motiv'}}}}
     results: {},    // {classId: {moduleId: {normId: {studentId: {v, g}}}}}
     choice: {},     // {classId: {moduleId: {studentId: 'auto'|'att'|'norm'|'team'|'avg'|'max'}}}
@@ -63,9 +68,13 @@ export function defaults() {
         {t: 'Învoit / motivat', exc: true},
         {t: 'Accidentat', exc: true},
         {t: 'Concurs / olimpiadă', exc: true},
+        {t: 'Inapt fiziologic', exc: false},
       ],
+      rv: 2,   // versiunea listei de motive (2 = cu „Inapt fiziologic”)
+      tv: 1,   // 1 = echipele școlii implicite au fost adăugate
     },
-    ui: {lastClass: null, tab: 'att'},
+    // tab: 'home' | 'classes' | 'set' (din Home) sau 'att' | 'grades' | 'norms' | 'tests' (într-o clasă); cnt: 'mod' | 'an'
+    ui: {lastClass: null, tab: 'home', cnt: 'mod'},
     updatedAt: 0,
   };
 }
@@ -83,6 +92,16 @@ export function normalize(d) {
     schools: d.schools && d.schools.length ? d.schools : [{id: 'sc1', name: (d.school && d.school.name) || ''}],
   });
   delete n.school.name;
+  // date mai vechi: se adaugă o singură dată motivul „Inapt fiziologic” și echipele școlii (dacă ai șters ceva după, nu mai revine)
+  const ds = d.settings || {};
+  if (!ds.rv) {
+    if (!n.settings.reasons.some(r => nrmName(r.t) === 'inapt fiziologic')) n.settings.reasons.push({t: 'Inapt fiziologic', exc: false});
+    n.settings.rv = 2;
+  }
+  if (!ds.tv) {
+    DEFAULT_TEAMS.forEach(t => { if (!n.teams.some(x => x.id === t.id || nrmName(x.name) === nrmName(t.name))) n.teams.push({...t, members: [], modules: []}); });
+    n.settings.tv = 1;
+  }
   n.classes.forEach(c => { if (!c.schoolId || !n.schools.some(s => s.id === c.schoolId)) c.schoolId = n.schools[0].id; });
   CLASS_KEYS.forEach(k => { n[k] = n[k] || {}; });
   return n;
@@ -96,12 +115,36 @@ function load() {
 
 export let S = load();
 
-export function persistLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+/* ---- ciorna dintr-o clasă ----
+   Cât timp ești într-o clasă (Prezență, Note, Norme, Testări), save() nu salvează: doar ține minte că s-au făcut
+   modificări. Butonul „Salvează” le scrie (local și în Google); Home fără salvare le poate anula.
+   draft = textul datelor de la ultima salvare; dirty = s-a schimbat ceva de atunci. Cât timp dirty, sincronizarea stă. */
+let draft = null, dirty = false, onDraft = () => {};
+export const isDirty = () => dirty;
+export const onDraftChange = fn => { onDraft = fn; };
+export function beginDraft() { draft = JSON.stringify(S); dirty = false; onDraft(); }
+export function endDraft() { draft = null; dirty = false; onDraft(); }
+// date noi venite din Google cât timp nu ai modificări nesalvate: devin punctul de plecare al ciornei
+export function refreshDraft() { if (draft && !dirty) draft = JSON.stringify(S); }
+export function discardDraft() {
+  if (draft && dirty) { const ui = S.ui; S = normalize(JSON.parse(draft)); S.ui = ui; }
+  dirty = false; if (draft) draft = JSON.stringify(S); persistLocal(); onDraft();
+}
+export function commitDraft() { dirty = false; realSave(); if (draft) draft = JSON.stringify(S); onDraft(); }
+
+// cu modificări nesalvate, pe dispozitiv rămâne versiunea salvată (doar preferințele de afișare sunt cele de acum)
+export function persistLocal() {
+  try { localStorage.setItem(KEY, dirty ? JSON.stringify(Object.assign(JSON.parse(draft), {ui: S.ui})) : JSON.stringify(S)); } catch (e) {}
+}
 export function setState(n) { S = normalize(n); persistLocal(); }
 
 let afterSave = () => {};
 export function onSave(fn) { afterSave = fn; }
-export function save() { S.updatedAt = Date.now(); persistLocal(); afterSave(); }
+function realSave() { S.updatedAt = Date.now(); persistLocal(); afterSave(); }
+export function save() {
+  if (draft) { if (!dirty) { dirty = true; onDraft(); } return; }
+  realSave();
+}
 
 export const cls = id => S.classes.find(c => c.id === id);
 export const sortStudents = c => c.students.sort((a, b) => a.name.localeCompare(b.name, 'ro'));

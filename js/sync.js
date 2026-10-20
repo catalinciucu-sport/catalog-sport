@@ -4,7 +4,7 @@
 // document. La fiecare sincronizare compară: ce s-a schimbat doar aici se trimite, ce s-a schimbat doar
 // în Google se preia, iar dacă s-a schimbat în ambele locuri se combină (merge3). Nu contează ora.
 // Pe lângă date, trimite foile citibile „Prezență <clasa>” și „Note <clasa>”.
-import {S, CLASS_KEYS, persistLocal} from './store.js';
+import {S, CLASS_KEYS, persistLocal, isDirty} from './store.js';
 import {fmtD} from './util.js';
 import {reasonExcused, finalFor} from './calc.js';
 import {setSync} from './ui.js';
@@ -89,6 +89,8 @@ function buildViews(c) {
 /* ---- o sincronizare completă: citește Google, preia / combină, trimite ce e nou aici ---- */
 async function syncNow() {
   const remote = (await api('get')).docs || {};
+  // între timp ai început să modifici într-o clasă: nu se combină nimic peste ciornă; se reia după „Salvează”
+  if (isDirty()) return;
   delete remote.meta;   // document folosit de versiuni mai vechi ale aplicației
   const R = Object.fromEntries(Object.entries(remote).map(([k, v]) => [k, J(v)]));
   const L = buildDocs();
@@ -134,9 +136,10 @@ const btn = () => document.getElementById('syncBtn');
 async function run() {
   if (btn()) btn().hidden = !linked();
   if (!linked()) return;
+  if (isDirty()) { setSync('modificări nesalvate'); return; }   // ciorna dintr-o clasă nu pleacă în Google
   if (syncing) { again = true; return; }
   syncing = true; btn()?.classList.add('spin');
-  try { await syncNow(); online = true; setSync('✓ salvat în Google'); }
+  try { await syncNow(); online = true; setSync(isDirty() ? 'modificări nesalvate' : '✓ salvat în Google'); }
   catch (e) {
     online = false;
     setSync(e.code === 'cod_gresit' ? 'cod secret greșit' : 'offline – salvat local');
