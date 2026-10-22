@@ -1,5 +1,5 @@
 // Ecranul „Note”: procent de prezență, notă pe prezență, note la norme, nota finală pe modul; export Excel.
-import {S, save, cls, path} from '../store.js';
+import {S, save, cls, path, activeClasses} from '../store.js';
 import {esc, fmtD, openModal, closeModal, ask, toast, $} from '../util.js';
 import {defaultModule, sessionsIn, attStats, finalFor, normsUsed, rres, CRITERIA, AUTO_RULES, anyTeam, catalogOptions, catalogPicks, catalogFor} from '../calc.js';
 import {openCatalogSheet} from '../report.js';
@@ -12,8 +12,8 @@ const G = {classId: null, modId: null};
 
 function renderGrades() {
   setHead('Note');
-  if (!S.classes.length) { view().innerHTML = noClasses(linked()); return; }
-  G.classId = cls(A.classId) ? A.classId : S.classes[0].id;   // clasa deschisă din Home
+  if (!activeClasses().length) { view().innerHTML = noClasses(linked()); return; }
+  G.classId = cls(A.classId) ? A.classId : activeClasses()[0].id;   // clasa deschisă din Home
   if (!S.modules.find(m => m.id === G.modId)) G.modId = defaultModule()?.id;
   const c = cls(G.classId), mod = S.modules.find(m => m.id === G.modId);
   if (!mod) { view().innerHTML = '<div class="card empty">Definește modulele în Setări.</div>'; return; }

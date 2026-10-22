@@ -1,5 +1,5 @@
 // Ecranul „Prezență”: clasa deschisă din Home, elevii prezenți din oficiu, debifezi absenții și alegi motivul.
-import {S, save, cls, path, persistLocal, beginDraft} from '../store.js';
+import {S, save, cls, path, persistLocal, beginDraft, activeClasses} from '../store.js';
 import {esc, iso, fmtD, toMin, wday, nrm, DAYS, ICON, uid, openModal, closeModal, ask, toast, $} from '../util.js';
 import {moduleFor} from '../calc.js';
 import {render, view, setHead, noClasses, fromTag, reasonColor} from '../ui.js';
@@ -27,7 +27,7 @@ function slotsFor(classId, date) {
 export function initAtt() {
   const today = iso(new Date()), cs = currentSlot();
   if (cs) { Object.assign(A, {classId: cs.e.classId, date: today, slot: cs.e.start, info: cs}); return; }
-  const c = cls(S.ui.lastClass) || S.classes[0];
+  const c = cls(S.ui.lastClass) || activeClasses()[0];
   Object.assign(A, {classId: c ? c.id : null, date: today, slot: c ? slotsFor(c.id, today)[0] : 'ora', info: null});
 }
 // intrarea într-o clasă din Home: azi, la ora din orar (dacă e cazul); de aici modificările așteaptă „Salvează”
@@ -64,8 +64,8 @@ function counts(cid, sid, mod) {
 }
 
 function renderAtt() {
-  if (!S.classes.length) { setHead('Prezență'); view().innerHTML = noClasses(linked()); return; }
-  if (!cls(A.classId)) { A.classId = S.classes[0].id; A.slot = slotsFor(A.classId, A.date)[0]; }
+  if (!activeClasses().length) { setHead('Prezență'); view().innerHTML = noClasses(linked()); return; }
+  if (!cls(A.classId)) { A.classId = activeClasses()[0].id; A.slot = slotsFor(A.classId, A.date)[0]; }
   const c = cls(A.classId), sess = getSess(false), mod = moduleFor(A.date);
   const slots = slotsFor(c.id, A.date);
   if (!slots.includes(A.slot)) slots.push(A.slot);

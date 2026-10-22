@@ -1,6 +1,6 @@
 // Ecranul „Norme”: introducerea rezultatelor pe modul (nota se calculează după baremul nivelului clasei)
 // și definirea normelor: barem general + bareme pe niveluri, completate de mână sau generate din rezultate.
-import {S, save, cls, path, LEVELS} from '../store.js';
+import {S, save, cls, path, LEVELS, activeClasses} from '../store.js';
 import {esc, uid, openModal, closeModal, ask, toast, $} from '../util.js';
 import {defaultModule, normGrade, rres, recalcNorm, levelOf, curveBarem} from '../calc.js';
 import {render, view, setHead, classOpts, modOpts, gTag, fromTag} from '../ui.js';
@@ -20,7 +20,7 @@ let MEC_NEW = [];
 
 function renderNorms() {
   setHead('Norme de control');
-  N.classId = cls(A.classId) ? A.classId : S.classes[0]?.id;   // clasa deschisă din Home
+  N.classId = cls(A.classId) ? A.classId : activeClasses()[0]?.id;   // clasa deschisă din Home
   if (!S.modules.find(m => m.id === N.modId)) N.modId = defaultModule()?.id;
   if (!normOf()) N.normId = S.norms[0]?.id;
   const c = cls(N.classId), mod = S.modules.find(m => m.id === N.modId), n = normOf(), lvl = levelOf(c);
@@ -36,7 +36,7 @@ function renderNorms() {
   }
   const lvUsed = lvl != null && n?.lv?.[lvl] && (filled(n.lv[lvl].B) || filled(n.lv[lvl].F));
   view().innerHTML = `<div class="card"><h2>Introducere rezultate</h2>
-    ${!S.classes.length ? '<div class="muted">Adaugă mai întâi o clasă.</div>' : !S.norms.length ? '<div class="muted">Adaugă mai întâi o normă (mai jos).</div>' : `
+    ${!activeClasses().length ? '<div class="muted">Adaugă mai întâi o clasă.</div>' : !S.norms.length ? '<div class="muted">Adaugă mai întâi o normă (mai jos).</div>' : `
     <div class="row2"><label class="f">Modul<select data-ch="nMod">${modOpts(mod?.id)}</select></label></div>
     <label class="f" style="margin-top:8px">Norma<select data-ch="nNorm">${S.norms.map(x => `<option value="${x.id}" ${x.id === n?.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
     <div class="small muted" style="margin-top:8px">${n ? (n.type === 'direct' ? 'Introdu direct nota (1–10).' : `Introdu rezultatul în ${isMin(n.unit) ? 'minute.secunde (4.50 = 4 min 50 s)' : esc(n.unit)} – nota se calculează automat după ${lvUsed ? `baremul pentru clasa a ${LEVELS[lvl]}-a` : 'baremul general'} (${n.type === 'high' ? 'mai mare = mai bine' : 'mai mic = mai bine'}). Lasă gol pentru elevii care nu au susținut proba.`) : ''}</div>`}

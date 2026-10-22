@@ -1,6 +1,6 @@
 // Ecranul „Home”: clasele ca iconițe (ca aplicațiile pe telefon) și ora de acum din orar.
 // De aici intri într-o clasă (Prezență, Note, Norme, Testări), în Clase și în Setări.
-import {S, schoolOf} from '../store.js';
+import {S, schoolOf, activeClasses} from '../store.js';
 import {esc, iso, fmtD, wday, DAYS, ICON, openModal} from '../util.js';
 import {openTeamSheet, teamStudents} from '../report.js';
 import {render, view, setHead, noClasses} from '../ui.js';
@@ -26,18 +26,18 @@ function tile(c, i, nowIds) {
 }
 
 function renderHome() {
-  setHead('Catalog Sport', schoolOf(S.classes[0])?.name || '');
+  setHead('Catalog Sport', schoolOf(activeClasses()[0])?.name || '');
   const today = iso(new Date()), cs = currentSlot();
   const nowIds = new Set(cs ? cs.all.map(x => x.classId) : []);
   const nowBox = cs ? `<div class="now">
       <div class="grow"><div class="small">${cs.kind === 'now' ? 'Ai oră acum' : 'Următoarea oră'} · ${cs.e.start}–${cs.e.end}</div>
       <div class="row2" style="margin-top:6px">${cs.all.map(x => `<button class="btn sm" data-act="openCls" data-id="${x.classId}">${esc(S.classes.find(c => c.id === x.classId).name)} →</button>`).join('')}</div></div></div>`
-    : S.classes.length && !S.schedule.length ? '<div class="now small">Completează orarul în Setări și aici vei vedea clasa cu care ai oră.</div>' : '';
+    : activeClasses().length && !S.schedule.length ? '<div class="now small">Completează orarul în Setări și aici vei vedea clasa cu care ai oră.</div>' : '';
   const hero = `<div class="hero">${TRACK}<h2>${greet()}</h2><div class="small">${DAYS[wday(today)]}, ${fmtD(today)}</div>${nowBox}</div>`;
-  if (!S.classes.length) { view().innerHTML = hero + noClasses(linked()); return; }
+  if (!activeClasses().length) { view().innerHTML = hero + noClasses(linked()); return; }
   // culori stabile: după poziția clasei în listă
-  const idx = new Map(S.classes.map((c, i) => [c.id, i]));
-  const groups = S.schools.map(sc => ({sc, cs: S.classes.filter(c => c.schoolId === sc.id)})).filter(g => g.cs.length);
+  const idx = new Map(activeClasses().map((c, i) => [c.id, i]));
+  const groups = S.schools.map(sc => ({sc, cs: activeClasses().filter(c => c.schoolId === sc.id)})).filter(g => g.cs.length);
   view().innerHTML = hero + groups.map(g => `
     <h2 class="apps-h">${S.schools.length > 1 ? esc(g.sc.name || 'Școală fără nume') : 'Clasele mele'}</h2>
     <div class="apps">${g.cs.map(c => tile(c, idx.get(c.id), nowIds)).join('')}</div>`).join('') +

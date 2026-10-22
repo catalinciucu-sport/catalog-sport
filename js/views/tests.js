@@ -1,6 +1,6 @@
 // Ecranul „Testări”: fiecare probă / măsurătoare se testează de câte ori vrei, fiecare testare cu data ei.
 // De aici se deschid și fișele de evoluție ale elevilor.
-import {S, save, cls, path} from '../store.js';
+import {S, save, cls, path, activeClasses} from '../store.js';
 import {esc, uid, iso, fmtD, num, fmtN, ask, $} from '../util.js';
 import {testItems, testsOf, progress} from '../calc.js';
 import {render, view, setHead, classOpts, noClasses, fromTag} from '../ui.js';
@@ -23,8 +23,8 @@ function deltaHTML(sid) {
 
 function renderTests() {
   setHead('Testări');
-  if (!S.classes.length) { view().innerHTML = noClasses(linked()); return; }
-  T.classId = cls(A.classId) ? A.classId : S.classes[0].id;   // clasa deschisă din Home
+  if (!activeClasses().length) { view().innerHTML = noClasses(linked()); return; }
+  T.classId = cls(A.classId) ? A.classId : activeClasses()[0].id;   // clasa deschisă din Home
   const items = testItems();
   if (!itemOf()) T.itemId = items[0]?.id;
   const c = cls(T.classId), item = itemOf(), tests = list();

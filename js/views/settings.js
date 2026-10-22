@@ -1,5 +1,5 @@
 // Ecranul „Setări”: Google Sheets, școala, orar, module, măsurători, scala notei pe prezență, motive, copie de siguranță.
-import {S, save, setState, defaults, normalize} from '../store.js';
+import {S, save, setState, defaults, normalize, activeClasses} from '../store.js';
 import {esc, uid, iso, toMin, DAYS, ask, toast, openModal, closeModal, $} from '../util.js';
 import {AUTO_RULES} from '../calc.js';
 import {render, view, setHead, classOpts} from '../ui.js';
@@ -32,7 +32,7 @@ function renderSet() {
 
   <div class="card"><h2>Școlile mele</h2><div class="small muted" style="margin-bottom:6px">Apar pe fișele elevilor și pe foaia pentru catalog. Dacă predai la mai multe școli, fiecare clasă se atribuie unei școli (în Clase).</div>
     ${S.schools.map(sc => row(`<input type="text" class="grow" style="min-width:180px" value="${esc(sc.name)}" placeholder="ex: Colegiul „…”" data-ch="schName" data-id="${sc.id}">
-      <span class="small muted">${S.classes.filter(c => c.schoolId === sc.id).length} clase</span>${S.schools.length > 1 ? del('schoolDel', `data-id="${sc.id}"`) : ''}`)).join('')}
+      <span class="small muted">${activeClasses().filter(c => c.schoolId === sc.id).length} clase</span>${S.schools.length > 1 ? del('schoolDel', `data-id="${sc.id}"`) : ''}`)).join('')}
     <button class="btn sm" style="margin-top:8px" data-act="schoolAdd">+ Adaugă școală</button>
     <div class="row2" style="margin-top:12px">
       <label class="f">Profesor<input type="text" value="${esc(S.school.teacher)}" data-ch="school" data-f="teacher"></label>
@@ -95,7 +95,7 @@ function renderSet() {
 let TM = {classId: null};
 function teamModal(id) {
   const t = S.teams.find(x => x.id === id);
-  if (!S.classes.some(c => c.id === TM.classId)) TM.classId = S.classes[0]?.id;
+  if (!activeClasses().some(c => c.id === TM.classId)) TM.classId = activeClasses()[0]?.id;
   const c = S.classes.find(x => x.id === TM.classId);
   const others = S.classes.flatMap(k => k.id === TM.classId ? [] : k.students.filter(s => t.members.includes(s.id)).map(s => `${s.name} (${k.name})`));
   openModal(`<h3>Echipa școlii</h3>
@@ -154,7 +154,7 @@ export default {
       try { await navigator.clipboard.writeText(l); toast('Linkul de conectare a fost copiat'); }
       catch (e) { openModal(`<h3>Linkul de conectare</h3><textarea readonly style="min-height:110px" onfocus="this.select()">${esc(l)}</textarea><div class="row2" style="margin-top:12px"><button class="btn right" data-act="close">Închide</button></div>`); }
     },
-    schAdd() { S.schedule.push({id: uid(), day: Math.min(5, Math.max(1, new Date().getDay())), start: '08:00', end: '08:50', classId: S.classes[0]?.id || ''}); save(); render(true); },
+    schAdd() { S.schedule.push({id: uid(), day: Math.min(5, Math.max(1, new Date().getDay())), start: '08:00', end: '08:50', classId: activeClasses()[0]?.id || ''}); save(); render(true); },
     schDel(el) { S.schedule = S.schedule.filter(x => x.id !== el.dataset.id); save(); render(true); },
     modAdd() { S.modules.push({id: uid(), name: 'Modul nou', start: iso(new Date()), end: iso(new Date())}); save(); render(true); },
     modDel(el) { ask('Ștergi modulul? Prezențele rămân, dar notele la norme din acest modul nu mai apar.', () => { S.modules = S.modules.filter(m => m.id !== el.dataset.id); save(); render(true); }, 'Șterge modulul'); },
