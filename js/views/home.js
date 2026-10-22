@@ -1,7 +1,8 @@
 // Ecranul „Home”: clasele ca iconițe (ca aplicațiile pe telefon) și ora de acum din orar.
 // De aici intri într-o clasă (Prezență, Note, Norme, Testări), în Clase și în Setări.
 import {S, schoolOf} from '../store.js';
-import {esc, iso, fmtD, wday, DAYS, ICON} from '../util.js';
+import {esc, iso, fmtD, wday, DAYS, ICON, openModal} from '../util.js';
+import {openTeamSheet, teamStudents} from '../report.js';
 import {render, view, setHead, noClasses} from '../ui.js';
 import {linked} from '../sync.js';
 import {currentSlot, openClass} from './attendance.js';
@@ -40,12 +41,20 @@ function renderHome() {
   view().innerHTML = hero + groups.map(g => `
     <h2 class="apps-h">${S.schools.length > 1 ? esc(g.sc.name || 'Școală fără nume') : 'Clasele mele'}</h2>
     <div class="apps">${g.cs.map(c => tile(c, idx.get(c.id), nowIds)).join('')}</div>`).join('') +
-    `<div class="home-links"><button class="btn" data-act="tab" data-k="classes">${ICON.classes}<span>Clase și elevi</span></button><button class="btn" data-act="tab" data-k="set">${ICON.set}<span>Setări</span></button></div>`;
+    `<div class="home-links"><button class="btn" data-act="hTeams">${ICON.team}<span>Echipa Colegiului</span></button><button class="btn" data-act="tab" data-k="classes">${ICON.classes}<span>Clase și elevi</span></button><button class="btn" data-act="tab" data-k="set">${ICON.set}<span>Setări</span></button></div>`;
 }
 
 export default {
   key: 'home', title: 'Home', render: renderHome,
   actions: {
     openCls(el) { openClass(el.dataset.id); render(); window.scrollTo(0, 0); },
+    // „Echipa Colegiului”: alegi echipa, apoi se deschide foaia ei (PDF, Excel, Print)
+    hTeams() {
+      openModal(`<h3>Echipa Colegiului</h3><div class="small muted" style="margin-bottom:10px">Alege echipa.</div>
+        <div class="team-btns">${S.teams.map(t => `<button class="btn" data-act="hTeam" data-id="${t.id}">${ICON.team}<span class="grow">${esc(t.name)}</span><span class="muted small">${(n => n === 1 ? '1 elev' : n + ' elevi')(teamStudents(t).length)}</span></button>`).join('')
+          || '<div class="muted">Nu ai nicio echipă. Adaug-o din Setări → Echipele școlii.</div>'}</div>
+        <div class="row2" style="margin-top:14px"><button class="btn" data-act="close">Închide</button></div>`);
+    },
+    hTeam(el) { openTeamSheet(S.teams.find(t => t.id === el.dataset.id)); },
   },
 };

@@ -5,7 +5,7 @@ import {esc, uid, iso, fmtD, num, fmtN, ask, $} from '../util.js';
 import {testItems, testsOf, progress} from '../calc.js';
 import {render, view, setHead, classOpts, noClasses, fromTag} from '../ui.js';
 import {linked} from '../sync.js';
-import {openReport, sharePdf} from '../report.js';
+import {openReport, sharePdf, printPages, reportHTML} from '../report.js';
 import {A} from './attendance.js';
 
 const T = {classId: null, itemId: null, testId: null, studentId: null};
@@ -56,6 +56,7 @@ function renderTests() {
       <select class="grow" style="min-width:160px" data-ch="tStudent">${c.students.map(s => `<option value="${s.id}" ${s.id === T.studentId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
       <button class="btn pri" data-act="repOne">Vezi fișa</button>
       <button class="btn" data-act="repAll">PDF cu toată clasa</button>
+      <button class="btn" data-act="repPrintAll">Print toată clasa</button>
     </div></div>`;
 }
 
@@ -76,6 +77,7 @@ export default {
     },
     repOne() { const c = cls(T.classId), st = c.students.find(s => s.id === T.studentId); if (st) openReport(c, st); },
     repAll(el) { const c = cls(T.classId); if (c.students.length) sharePdf(c, c.students, el); },
+    repPrintAll() { const c = cls(T.classId); if (c.students.length) printPages(c.students.map(st => reportHTML(c, st))); },
   },
   changes: {
     tClass(el) { T.classId = el.value; T.testId = null; render(); },

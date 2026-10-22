@@ -1,7 +1,7 @@
 // Ecranul „Note”: procent de prezență, notă pe prezență, note la norme, nota finală pe modul; export Excel.
 import {S, save, cls, path} from '../store.js';
 import {esc, fmtD, openModal, closeModal, ask, toast, $} from '../util.js';
-import {defaultModule, sessionsIn, attStats, finalFor, normsUsed, rres, CRITERIA, AUTO_RULES, catalogOptions, catalogPicks, catalogFor} from '../calc.js';
+import {defaultModule, sessionsIn, attStats, finalFor, normsUsed, rres, CRITERIA, AUTO_RULES, anyTeam, catalogOptions, catalogPicks, catalogFor} from '../calc.js';
 import {openCatalogSheet} from '../report.js';
 import {render, view, setHead, classOpts, modOpts, gTag, noClasses, fromTag, nameWithClass} from '../ui.js';
 import {download} from '../files.js';
@@ -26,17 +26,17 @@ function renderGrades() {
       <td>${gTag(f.gp)}</td>
       ${ns.map(n => { const x = r[n.id]?.[st.id]; return `<td>${gTag(x?.g)}${x && x.v != null && n.type !== 'direct' ? `<div class="muted" style="font-size:11px">${x.v} ${esc(n.unit)}</div>` : ''}</td>`; }).join('')}
       <td class="fin">${gTag(f.g)}</td>
-      <td><select data-ch="choice" data-id="${st.id}">${CRITERIA.map(([k, t]) => `<option value="${k}" ${f.ch === k ? 'selected' : ''}>${t}${k === 'auto' && f.ch === 'auto' ? ' · ' + f.src : ''}</option>`).join('')}</select></td>
+      <td><select data-ch="choice" data-id="${st.id}">${CRITERIA.filter(([k]) => k !== 'team' || anyTeam(st.id)).map(([k, t]) => `<option value="${k}" ${f.ch === k ? 'selected' : ''}>${t}${k === 'auto' && f.ch === 'auto' ? ' · ' + f.src : ''}</option>`).join('')}</select></td>
       <td><button class="btn sm" data-act="catEdit" data-id="${st.id}" title="Alege notele pentru catalog">${catalogFor(c, st, mod).map(x => gTag(x.g)).join(' ') || '<span class="muted">–</span>'} ✎</button></td></tr>`;
   }).join('');
-  view().innerHTML = `<div class="card"><div class="row2">
-      <label class="f">Modul<select data-ch="gMod">${modOpts(mod.id)}</select></label></div>
-    <div class="small muted" style="margin-top:8px">${sessionsIn(c.id, mod).length} ore înregistrate în modul. Automat: membrii echipei școlii cu competiții în acest modul primesc 10; ceilalți primesc ${AUTO_RULES[S.settings.autoRule || 'max']}. Absențele motivate (ex. boală) nu scad procentul. Poți alege alt criteriu pentru fiecare elev, în coloana Sursa.</div>
-    <div class="small muted" style="margin-top:6px">În coloana <b>În catalog</b> alegi ce note se trec în catalog (una sau mai multe): apasă pe note.</div>
-    <div class="row2" style="margin-top:10px"><button class="btn pri" data-act="catSheet">Foaie pentru catalog</button><button class="btn" data-act="expGrades">Export note (Excel)</button><button class="btn" data-act="expAtt">Export prezență (Excel)</button></div></div>
-  <div class="tbl-wrap"><table><thead><tr><th>Nr</th><th class="l">Elev</th><th>% prez.</th><th>Notă<br>prez.</th>
+  view().innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Nr</th><th class="l">Elev</th><th>% prez.</th><th>Notă<br>prez.</th>
     ${ns.map(n => `<th title="${esc(n.name)}">${esc(n.name.replace(/\s*\(exemplu\)/, '').slice(0, 16))}</th>`).join('')}<th>Nota<br>calculată</th><th>Criteriu</th><th>În catalog</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="${7 + ns.length}" class="empty">Clasa nu are elevi.</td></tr>`}</tbody></table></div>`;
+    <tbody>${rows || `<tr><td colspan="${7 + ns.length}" class="empty">Clasa nu are elevi.</td></tr>`}</tbody></table></div>
+  <div class="card" style="margin-top:12px"><div class="row2">
+      <label class="f">Modul<select data-ch="gMod">${modOpts(mod.id)}</select></label></div>
+    <div class="small muted" style="margin-top:8px">${sessionsIn(c.id, mod).length} ore înregistrate în modul. Automat: membrii echipei școlii cu competiții în acest modul primesc 10; ceilalți primesc ${AUTO_RULES[S.settings.autoRule || 'max']}. Absențele motivate (ex. boală) nu scad procentul. Poți alege alt criteriu pentru fiecare elev, în coloana Criteriu („Echipa școlii” apare doar la elevii bifați într-o echipă).</div>
+    <div class="small muted" style="margin-top:6px">În coloana <b>În catalog</b> alegi ce note se trec în catalog (una sau mai multe): apasă pe note.</div>
+    <div class="row2" style="margin-top:10px"><button class="btn pri" data-act="catSheet">Foaie pentru catalog</button><button class="btn" data-act="expGrades">Export note (Excel)</button><button class="btn" data-act="expAtt">Export prezență (Excel)</button></div></div>`;
 }
 
 /* ---- fereastra „Note pentru catalog” a unui elev, în modulul ales ---- */
