@@ -19,7 +19,8 @@ export function defaults() {
   return {
     school: {year: '2026–2027', teacher: ''},
     schools: [{id: 'sc1', name: ''}],   // școlile profesorului; fiecare clasă are schoolId
-    // [{id, name, schoolId, level?: 0–12 (dacă lipsește, se deduce din nume), students: [{id, name, gender: 'B'|'F'|'', from?: clasa de proveniență}]}]
+    // [{id, name, schoolId, level?: 0–12 (dacă lipsește, se deduce din nume), students: [{id, name, gender: 'B'|'F'|'', from?: clasa de proveniență}],
+    //   archived?: 'anul școlar' (clasă din arhivă: nu apare pe Home și în liste; ex. „Plecați 2026–2027” = elevii predați)}]
     classes: [],
     schedule: [],    // [{id, day: 1-6, start: 'HH:MM', end: 'HH:MM', classId}]
     // Date orientative pentru anul școlar 2026–2027 — se verifică în Setări.
@@ -147,6 +148,8 @@ export function save() {
 }
 
 export const cls = id => S.classes.find(c => c.id === id);
+// clasele cu care lucrezi (fără cele din arhivă)
+export const activeClasses = () => S.classes.filter(c => !c.archived);
 export const sortStudents = c => c.students.sort((a, b) => a.name.localeCompare(b.name, 'ro'));
 export function removeClass(id) {
   const gone = new Set((cls(id)?.students || []).map(s => s.id));

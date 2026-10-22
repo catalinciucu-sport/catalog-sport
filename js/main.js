@@ -1,7 +1,7 @@
 // Pornirea aplicației: taburile, redesenarea ecranului și legarea evenimentelor.
 // Fiecare ecran (js/views/*.js) exportă {key, title, render, actions, changes, inputs};
 // elementele din pagină au data-act="numeAcțiune" (click) sau data-ch="numeSchimbare" (change/input).
-import {S, onSave, persistLocal, setState, defaults, isDirty, onDraftChange, endDraft, commitDraft, discardDraft, refreshDraft} from './store.js';
+import {S, activeClasses, onSave, persistLocal, setState, defaults, isDirty, onDraftChange, endDraft, commitDraft, discardDraft, refreshDraft} from './store.js';
 import {ICON, $, closeModal, openModal, ask, toast} from './util.js';
 import {setRenderer, setSync} from './ui.js';
 import {queueSync, connect, onRemoteData, syncNowBtn, parseSetup, currentUrl, linked, link, unlink} from './sync.js';
@@ -10,7 +10,7 @@ import attendance, {A, initAtt, ensureSess} from './views/attendance.js';
 import grades from './views/grades.js';
 import norms from './views/norms.js';
 import tests from './views/tests.js';
-import classes, {onImportFiles} from './views/classes.js';
+import classes, {onImportFiles, onReceiveFile} from './views/classes.js';
 import settings, {onBackupFile} from './views/settings.js';
 
 // taburile din bara de jos: într-o clasă (între Home și Salvează) și în afara ei
@@ -54,7 +54,7 @@ function renderTabs() {
 function render(keepScroll) {
   const y = window.scrollY;
   if (!byKey[S.ui.tab]) S.ui.tab = 'home';
-  if (inClass() && !S.classes.length) S.ui.tab = 'home';
+  if (inClass() && !activeClasses().length) S.ui.tab = 'home';
   renderTabs();
   byKey[S.ui.tab].render();
   // într-o clasă, numele ei apare mereu în bara de sus
@@ -82,6 +82,7 @@ document.addEventListener('input', e => { const f = INPUTS[e.target.dataset.ch];
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 $('#fileImp').addEventListener('change', e => { if (e.target.files.length) onImportFiles([...e.target.files]); });
 $('#fileBak').addEventListener('change', e => { if (e.target.files[0]) onBackupFile(e.target.files[0]); });
+$('#fileElevi').addEventListener('change', e => { if (e.target.files[0]) onReceiveFile(e.target.files[0]); });
 
 onSave(queueSync);
 onRemoteData(() => {

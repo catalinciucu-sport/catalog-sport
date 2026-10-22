@@ -1,6 +1,6 @@
 // Piese de interfață comune ecranelor: titlul de sus, liste de selecție, eticheta de notă.
 // render() redesenează ecranul curent (îl leagă main.js).
-import {S} from './store.js';
+import {S, activeClasses} from './store.js';
 import {esc, fmtD, nrm, $} from './util.js';
 
 let renderFn = () => {};
@@ -14,8 +14,8 @@ export function setSync(t) { const el = $('#sync'); if (el) el.textContent = t; 
 // lista claselor pentru selecții; cu mai multe școli, grupate pe școli
 export function classOpts(sel) {
   const opt = c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`;
-  if (S.schools.length < 2) return S.classes.map(opt).join('');
-  return S.schools.map(sc => { const cs = S.classes.filter(c => c.schoolId === sc.id); return cs.length ? `<optgroup label="${esc(sc.name || 'Școală fără nume')}">${cs.map(opt).join('')}</optgroup>` : ''; }).join('');
+  if (S.schools.length < 2) return activeClasses().map(opt).join('');
+  return S.schools.map(sc => { const cs = activeClasses().filter(c => c.schoolId === sc.id); return cs.length ? `<optgroup label="${esc(sc.name || 'Școală fără nume')}">${cs.map(opt).join('')}</optgroup>` : ''; }).join('');
 }
 export const modOpts = sel => S.modules.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.name)} (${fmtD(m.start).slice(0, 5)}–${fmtD(m.end).slice(0, 5)})</option>`).join('');
 // clasa de proveniență, sub nume, pentru elevii din grupe (student.from, ex. „9COM”)
