@@ -131,6 +131,8 @@ export const CRITERIA = [
 export const AUTO_RULES = {max: 'cea mai mare dintre nota pe prezență și media normelor', avg: 'media dintre nota pe prezență și media normelor', norm: 'media normelor, dacă există'};
 // elevul e într-o echipă care are competiții în acest modul
 export const teamOf = (sid, mod) => S.teams.find(t => t.members.includes(sid) && t.modules.includes(mod.id));
+// prima echipă a școlii din care face parte elevul (doar membrii pot primi nota pe criteriul „Echipa școlii”)
+export const anyTeam = sid => S.teams.find(t => t.members.includes(sid));
 
 function combine(rule, gp, gn) {
   if (gp == null) return gn != null ? {g: gn, src: 'Norme'} : {g: null, src: ''};
@@ -147,7 +149,8 @@ export function finalFor(c, st, mod) {
   const avgN = gs.length ? gs.reduce((x, y) => x + y, 0) / gs.length : null;
   const gn = avgN != null ? roundG(avgN) : null;
   const team = teamOf(st.id, mod);
-  const ch = S.choice[c.id]?.[mod.id]?.[st.id] || 'auto';
+  let ch = S.choice[c.id]?.[mod.id]?.[st.id] || 'auto';
+  if (ch === 'team' && !anyTeam(st.id)) ch = 'auto';   // a fost scos din echipă
   let res;
   if (ch === 'att') res = {g: gp, src: 'Prezență'};
   else if (ch === 'norm') res = {g: gn, src: 'Norme'};
@@ -165,7 +168,8 @@ export function catalogOptions(c, st, mod) {
   const o = [{key: 'auto', label: 'Nota calculată (' + (f.src || '–') + ')', g: f.g}, {key: 'navg', label: 'Media normelor', g: f.avgN != null ? roundG(f.avgN) : null}];
   S.norms.forEach(n => { const g = r[n.id]?.[st.id]?.g; if (g != null) o.push({key: 'norm:' + n.id, label: normName(n), g}); });
   o.push({key: 'att', label: 'Prezență' + (f.a.pct != null ? ` (${f.a.pct}%)` : ''), g: f.gp});
-  o.push({key: 'team', label: f.team ? 'Echipa ' + f.team.name : 'Echipa școlii', g: 10});
+  const t = f.team || anyTeam(st.id);
+  if (t) o.push({key: 'team', label: 'Echipa ' + t.name, g: 10});
   return o;
 }
 export const catalogPicks = (cId, mId, sid) => S.catalog[cId]?.[mId]?.[sid] || ['auto'];
