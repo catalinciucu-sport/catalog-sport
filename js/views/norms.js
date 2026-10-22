@@ -5,12 +5,18 @@ import {esc, uid, openModal, closeModal, ask, toast, $} from '../util.js';
 import {defaultModule, normGrade, rres, recalcNorm, levelOf, curveBarem} from '../calc.js';
 import {render, view, setHead, classOpts, modOpts, gTag, fromTag} from '../ui.js';
 import {A} from './attendance.js';
+import {mecNorms} from '../mec.js';
 
 const N = {classId: null, modId: null, normId: null};
 const normOf = () => S.norms.find(x => x.id === N.normId);
 const empty6 = () => ['', '', '', '', '', ''];
 const lvName = l => l === 'g' ? 'General' : LEVELS[+l];
 const filled = a => a && a.some(x => x !== '' && x != null);
+// unitatea „min” = minute.secunde (4.50 = 4'50"); se afișează mereu cu două zecimale
+const isMin = u => u === 'min';
+const shown2 = (v, u) => v === '' || v == null ? '' : isMin(u) ? (+v).toFixed(2) : v;
+const badSec = v => v !== '' && v != null && Math.round((+v % 1) * 100) >= 60;
+let MEC_NEW = [];
 
 function renderNorms() {
   setHead('Norme de control');
@@ -22,9 +28,9 @@ function renderNorms() {
   if (c && mod && n) {
     const r = rres(c.id, mod.id)[n.id] || {};
     entry = `<div class="list">${c.students.map((st, i) => {
-      const x = r[st.id] || {}, val = n.type === 'direct' ? (x.g ?? '') : (x.v ?? '');
+      const x = r[st.id] || {}, val = n.type === 'direct' ? (x.g ?? '') : shown2(x.v, n.unit);
       return `<div class="st static"><span class="nr">${i + 1}</span><span class="nm">${esc(st.name)} <span class="muted small">${st.gender || ''}</span>${fromTag(st)}</span>
-        <input type="number" class="val" inputmode="decimal" step="any" value="${val}" placeholder="${n.type === 'direct' ? 'notă' : esc(n.unit)}" data-ch="res" data-id="${st.id}">
+        <input type="number" class="val" inputmode="decimal" step="any" value="${val}" placeholder="${n.type === 'direct' ? 'notă' : isMin(n.unit) ? 'ex. 4.50' : esc(n.unit)}" data-ch="res" data-id="${st.id}">
         <span id="rg_${st.id}" style="width:36px;text-align:center">${gTag(x.g)}</span></div>`;
     }).join('') || '<div class="empty">Clasa nu are elevi.</div>'}</div>`;
   }
@@ -33,9 +39,10 @@ function renderNorms() {
     ${!S.classes.length ? '<div class="muted">Adaugă mai întâi o clasă.</div>' : !S.norms.length ? '<div class="muted">Adaugă mai întâi o normă (mai jos).</div>' : `
     <div class="row2"><label class="f">Modul<select data-ch="nMod">${modOpts(mod?.id)}</select></label></div>
     <label class="f" style="margin-top:8px">Norma<select data-ch="nNorm">${S.norms.map(x => `<option value="${x.id}" ${x.id === n?.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
-    <div class="small muted" style="margin-top:8px">${n ? (n.type === 'direct' ? 'Introdu direct nota (1–10).' : `Introdu rezultatul în ${esc(n.unit)} – nota se calculează automat după ${lvUsed ? `baremul pentru clasa a ${LEVELS[lvl]}-a` : 'baremul general'} (${n.type === 'high' ? 'mai mare = mai bine' : 'mai mic = mai bine'}). Lasă gol pentru elevii care nu au susținut proba.`) : ''}</div>`}
+    <div class="small muted" style="margin-top:8px">${n ? (n.type === 'direct' ? 'Introdu direct nota (1–10).' : `Introdu rezultatul în ${isMin(n.unit) ? 'minute.secunde (4.50 = 4 min 50 s)' : esc(n.unit)} – nota se calculează automat după ${lvUsed ? `baremul pentru clasa a ${LEVELS[lvl]}-a` : 'baremul general'} (${n.type === 'high' ? 'mai mare = mai bine' : 'mai mic = mai bine'}). Lasă gol pentru elevii care nu au susținut proba.`) : ''}</div>`}
   </div>${entry}
   <div class="card" style="margin-top:12px"><div class="row2"><h2 class="grow" style="margin:0">Norme definite</h2><button class="btn pri sm" data-act="normEdit" data-id="">+ Normă nouă</button></div>
+    <button class="btn sm" data-act="mecAdd" style="margin:8px 0 4px">Adaugă grilele MEC (clasele V–XII)</button>
     ${S.norms.map(x => { const lv = Object.keys(x.lv || {}).filter(k => filled(x.lv[k].B) || filled(x.lv[k].F)).sort((a, b) => a - b);
       return `<div class="item"><div class="grow"><b>${esc(x.name)}</b><div class="small muted">${x.type === 'direct' ? 'notă directă' : `${esc(x.unit)} · ${x.type === 'high' ? 'mai mare = mai bine' : 'mai mic = mai bine'} · bareme: general${lv.length ? ', ' + lv.map(k => LEVELS[k]).join(', ') : ''}`}</div></div>
       <button class="btn sm" data-act="normEdit" data-id="${x.id}">Editează</button></div>`; }).join('') || '<div class="muted">Nicio normă.</div>'}</div>`;
@@ -65,8 +72,8 @@ function drawBarem() {
   const classLv = [...new Set(S.classes.map(levelOf).filter(l => l != null))];
   const shown = [...new Set([...classLv, ...Object.keys(DRAFT.lv).map(Number)])].sort((a, b) => a - b);
   const rest = LEVELS.map((t, i) => i).filter(i => !shown.includes(i));
-  const t = cur();
-  const cell = (g, i) => `<div><input type="number" step="any" id="t${g}${i}" value="${t[g][i] ?? ''}" data-ch="thr"><div class="small" id="iv${g}${i}" style="margin-top:2px;min-height:1.3em"></div></div>`;
+  const t = cur(), unit = $('#nUnit').value.trim();
+  const cell = (g, i) => `<div><input type="number" step="any" id="t${g}${i}" value="${shown2(t[g][i], unit)}" data-ch="thr"><div class="small" id="iv${g}${i}" style="margin-top:2px;min-height:1.3em"></div></div>`;
   $('#thrBody').innerHTML = `
     <div class="small muted" style="margin-bottom:6px">Baremul general se folosește la nivelurile fără barem propriu. Alege un nivel ca să-i completezi baremul.</div>
     <div class="chips" style="margin:0 0 10px">${['g', ...shown].map(k => { const has = k === 'g' || (DRAFT.lv[k] && (filled(DRAFT.lv[k].B) || filled(DRAFT.lv[k].F)));
@@ -84,15 +91,19 @@ function drawBarem() {
 // intervalul fiecărei note, calculat din limitele scrise (ex. nota 9: 8,0 – 8,3 s)
 function intervals(type, raw, unit) {
   const v = raw.map(x => x === '' ? null : +x), set = v.filter(x => x != null);
-  const dec = Math.max(0, ...set.map(x => (String(x).split('.')[1] || '').length));
-  const step = 10 ** -dec, f = x => x.toFixed(dec).replace('.', ','), u = unit ? ' ' + unit : '';
+  const dec = isMin(unit) ? 2 : Math.max(0, ...set.map(x => (String(x).split('.')[1] || '').length));
+  const f = x => isMin(unit) ? x.toFixed(2).replace('.', "'") + '"' : x.toFixed(dec).replace('.', ','), u = unit && !isMin(unit) ? ' ' + unit : '';
+  // la minute.secunde, pasul de după x.00 e x-1.59 (nu x-1.99)
+  const nextMin = (x, d) => { let s = Math.round(x * 100) + d; if (s % 100 > 59) s += d > 0 ? 40 : -40; return s / 100; };
+  const step = 10 ** -dec, move = (x, d) => isMin(unit) ? nextMin(x, d) : x + d * step;
   let prev = null;
   return v.map(x => {
     if (x == null) return '';
     let s;
-    if (prev == null) s = (type === 'low' ? 'până la ' : 'de la ') + f(x) + u;
+    if (isMin(unit) && badSec(x)) s = '⚠ secundele trec de 59';
+    else if (prev == null) s = (type === 'low' ? 'până la ' : 'de la ') + f(x) + u;
     else if (type === 'low' ? x <= prev : x >= prev) s = '⚠ verifică ordinea';
-    else { const a = type === 'low' ? prev + step : prev - step; s = (type === 'low' ? `${f(a)} – ${f(x)}` : `${f(x)} – ${f(a)}`) + u; }
+    else { const a = move(prev, type === 'low' ? 1 : -1); s = (type === 'low' ? `${f(a)} – ${f(x)}` : `${f(x)} – ${f(a)}`) + u; }
     prev = x;
     return s;
   });
@@ -103,7 +114,8 @@ function showIntervals() {
   const type = $('#nType').value, unit = $('#nUnit').value.trim(), t = cur();
   $('#thrHelp').textContent = (LV === 'g' ? 'Barem general. ' : `Barem pentru clasa ${LEVELS[LV] === 'Pregătitoare' ? 'pregătitoare' : 'a ' + LEVELS[LV] + '-a'}. `) + (type === 'low'
     ? 'Scrie pentru fiecare notă rezultatul cel mai slab cu care se mai ia nota (ex. nota 10: 7,9; nota 9: 8,3).'
-    : 'Scrie pentru fiecare notă rezultatul minim cu care se ia nota (ex. nota 10: 210; nota 9: 200).');
+    : 'Scrie pentru fiecare notă rezultatul minim cu care se ia nota (ex. nota 10: 210; nota 9: 200).')
+    + (isMin(unit) ? ' Timpul se scrie minute.secunde: 4.50 = 4 min 50 s.' : '');
   ['B', 'F'].forEach(g => {
     const vals = [0, 1, 2, 3, 4, 5].map(i => $('#t' + g + i).value);
     t[g] = vals.map(v => v === '' ? '' : +v);
@@ -120,6 +132,7 @@ function setResult(sid, raw) {
   const n = normOf(), c = cls(N.classId), st = c.students.find(s => s.id === sid);
   const r = path('results', N.classId, N.modId, n.id);
   if (raw === '') delete r[sid];
+  else if (isMin(n.unit) && n.type !== 'direct' && badSec(raw)) { toast('Secundele trec de 59 – scrie de ex. 4.50 pentru 4 min 50 s'); return; }
   else { const g = normGrade(n, st.gender, raw, levelOf(c)); r[sid] = n.type === 'direct' ? {v: null, g} : {v: +raw, g}; }
   save(); $('#rg_' + sid).innerHTML = gTag(r[sid]?.g);
 }
@@ -128,6 +141,21 @@ export default {
   key: 'norms', title: 'Norme', render: renderNorms,
   actions: {
     normEdit(el) { normModal(el.dataset.id); },
+    // grilele MEC: arată întâi ce se adaugă; normele existente (după id) nu se ating
+    mecAdd() {
+      MEC_NEW = mecNorms().filter(m => !S.norms.some(x => x.id === m.id));
+      if (!MEC_NEW.length) { toast('Toate probele din grilele MEC sunt deja în listă'); return; }
+      const lv = m => { const k = Object.keys(m.lv).sort((a, b) => a - b); return k.length ? k.map(x => LEVELS[x]).join(', ') : 'notă directă'; };
+      openModal(`<h3>Adaugă grilele MEC</h3>
+        <div class="small muted" style="margin-bottom:8px">Se adaugă ${MEC_NEW.length} probe, cu baremele pe clase (băieți și fete). Normele tale și rezultatele elevilor rămân neschimbate; probele MEC deja existente nu se rescriu.</div>
+        <div style="max-height:50vh;overflow:auto">${MEC_NEW.map(m => `<div class="item"><div class="grow">${esc(m.name)}<div class="small muted">${esc(lv(m))}</div></div></div>`).join('')}</div>
+        <div class="row2" style="margin-top:14px"><button class="btn pri" data-act="mecYes">Adaugă ${MEC_NEW.length} probe</button><button class="btn right" data-act="close">Renunță</button></div>`);
+    },
+    mecYes() {
+      const add = MEC_NEW.filter(m => !S.norms.some(x => x.id === m.id));
+      S.norms.push(...add); MEC_NEW = [];
+      save(); closeModal(); render(); toast(`Am adăugat ${add.length} probe MEC`);
+    },
     nLv(el) { showIntervals(); LV = el.dataset.k === 'g' ? 'g' : el.dataset.k; drawBarem(); },
     nLvClear() { delete DRAFT.lv[LV]; LV = 'g'; drawBarem(); },
     nCurve() {
@@ -147,7 +175,8 @@ export default {
       showIntervals();
       const name = $('#nName').value.trim(); if (!name) { toast('Scrie denumirea normei'); return; }
       const type = $('#nType').value;
-      if (type !== 'direct' && !filled(DRAFT.t.B)) { toast('Completează baremul general (cel puțin o valoare la băieți)'); return; }
+      if (type !== 'direct' && !filled(DRAFT.t.B) && !filled(DRAFT.t.F)) { toast('Completează baremul general (cel puțin o valoare)'); return; }
+      if (isMin($('#nUnit').value.trim()) && [DRAFT.t, ...Object.values(DRAFT.lv)].some(x => [...x.B, ...x.F].some(badSec))) { toast('Un timp are secundele peste 59 (scrie ex. 4.50)'); return; }
       Object.keys(DRAFT.lv).forEach(k => { if (!filled(DRAFT.lv[k].B) && !filled(DRAFT.lv[k].F)) delete DRAFT.lv[k]; });
       let n = S.norms.find(x => x.id === EDIT_ID);
       if (!n) { n = {id: uid()}; S.norms.push(n); }
@@ -174,6 +203,6 @@ export default {
   // nota apare în timp ce scrii
   inputs: {
     thr: showIntervals,
-    res(el) { const n = normOf(), c = cls(N.classId), st = c?.students.find(s => s.id === el.dataset.id); if (n && st) $('#rg_' + st.id).innerHTML = gTag(normGrade(n, st.gender, el.value, levelOf(c))); },
+    res(el) { const n = normOf(), c = cls(N.classId), st = c?.students.find(s => s.id === el.dataset.id); if (n && st) $('#rg_' + st.id).innerHTML = isMin(n.unit) && n.type !== 'direct' && badSec(el.value) ? '⚠' : gTag(normGrade(n, st.gender, el.value, levelOf(c))); },
   },
 };
